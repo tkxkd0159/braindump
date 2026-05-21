@@ -17,6 +17,14 @@ public struct BrainDumpSection: View {
 
     private var taskService: TaskService { TaskService(context: context) }
 
+    private func isScheduled(_ item: TaskItem) -> Bool {
+        day.schedule.contains { $0.item?.id == item.id }
+    }
+
+    private func isCompleted(_ item: TaskItem) -> Bool {
+        day.schedule.contains { $0.item?.id == item.id && $0.isCompleted }
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Brain Dump")
@@ -52,7 +60,10 @@ public struct BrainDumpSection: View {
     private func row(for item: TaskItem) -> some View {
         HStack(spacing: 8) {
             Circle()
-                .stroke(Color.secondary, lineWidth: 1)
+                .stroke(isCompleted(item) ? Color.accentColor : Color.secondary, lineWidth: 1)
+                .background(
+                    Circle().fill(isCompleted(item) ? Color.accentColor.opacity(0.6) : Color.clear)
+                )
                 .frame(width: 12, height: 12)
             if editingID == item.id {
                 TextField("Title", text: $editingDraft)
@@ -60,6 +71,8 @@ public struct BrainDumpSection: View {
                     .onSubmit { commitEdit(item) }
             } else {
                 Text(item.title)
+                    .strikethrough(isCompleted(item))
+                    .foregroundStyle(isCompleted(item) ? .secondary : .primary)
                     .onTapGesture(count: 2) {
                         if !isReadOnly {
                             editingID = item.id
@@ -88,7 +101,12 @@ public struct BrainDumpSection: View {
                 .opacity(0.6)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isScheduled(item) ? Color.accentColor.opacity(0.08) : Color.clear)
+        )
         .draggable(TaskItemDragPayload(id: item.id))
     }
 

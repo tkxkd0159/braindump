@@ -20,6 +20,7 @@ struct TodoosxApp: App {
         WindowGroup("todoosx") {
             AppShell()
                 .frame(minWidth: 920, minHeight: 720)
+                .tint(Color(red: 0x1c / 255, green: 0x32 / 255, blue: 0x55 / 255))
         }
         .modelContainer(container)
         .windowStyle(.titleBar)

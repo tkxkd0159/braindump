@@ -13,6 +13,14 @@ public struct Top3Section: View {
 
     private var taskService: TaskService { TaskService(context: context) }
 
+    private func isScheduled(_ item: TaskItem) -> Bool {
+        day.schedule.contains { $0.item?.id == item.id }
+    }
+
+    private func isCompleted(_ item: TaskItem) -> Bool {
+        day.schedule.contains { $0.item?.id == item.id && $0.isCompleted }
+    }
+
     private var top3Items: [TaskItem?] {
         var slots: [TaskItem?] = [nil, nil, nil]
         for (i, id) in day.top3ItemIDs.prefix(3).enumerated() {
@@ -48,10 +56,13 @@ public struct Top3Section: View {
     private func slotRow(index: Int, item: TaskItem?) -> some View {
         let base = HStack(spacing: 8) {
             Text("\(index + 1).")
+                .font(.body.weight(.semibold).monospacedDigit())
                 .foregroundStyle(.secondary)
                 .frame(width: 20, alignment: .leading)
             if let item {
                 Text(item.title)
+                    .strikethrough(isCompleted(item))
+                    .foregroundStyle(isCompleted(item) ? .secondary : .primary)
                 Spacer()
                 if !isReadOnly {
                     Button {
@@ -68,11 +79,11 @@ public struct Top3Section: View {
                 Spacer()
             }
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 4)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(item == nil ? Color.gray.opacity(0.04) : Color.clear)
+                .fill(rowBackground(for: item))
         )
 
         if let item, !isReadOnly {
@@ -80,5 +91,10 @@ public struct Top3Section: View {
         } else {
             base
         }
+    }
+
+    private func rowBackground(for item: TaskItem?) -> Color {
+        guard let item else { return Color.gray.opacity(0.04) }
+        return isScheduled(item) ? Color.accentColor.opacity(0.08) : Color.clear
     }
 }
