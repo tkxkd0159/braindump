@@ -8,34 +8,34 @@
 
 **Tech Stack:** Swift 6, SwiftUI, SwiftData, **Swift Testing** (not XCTest). Swift Package Manager (`Package.swift`) — no `.xcodeproj`. macOS 14+.
 
-## Amendment (applied during Task 0)
-
-The plan was originally written assuming an XCTest test target run by `swift test`. On a machine with Command Line Tools but no full Xcode, `swift test` silently no-ops (the `xctest` runner isn't included with CLT). To get real TDD without requiring Xcode, the structure changed to:
+## Layout (current)
 
 ```
 Sources/
   TodoosxKit/        ← library (models, services, AppState, views — public types)
   todoosx/           ← app executable (@main TodoosxApp)
-  todoosx-test/      ← test runner executable (@main TestRunner, calls Testing.__swiftPMEntryPoint)
+Tests/
+  todoosxTests/      ← Swift Testing test target
 ```
 
-- Tests live in `Sources/todoosx-test/` (alongside `Runner.swift`), not `Tests/`.
 - Tests use **Swift Testing** (`import Testing`, `@Test func ...`, `#expect(...)`, `#expect(throws: ...) { ... }`), not XCTest.
-- Run tests: `swift run todoosx-test` (not `swift test`). Filter: `swift run todoosx-test --filter <name>`.
+- Run tests: `swift test`. Filter a single test: `swift test --filter <name>`.
 - All library types referenced by tests must be `public` (or `internal` with `@testable import TodoosxKit`).
 - `@MainActor` is applied per `@Test func`, not per class (there are no test classes in Swift Testing).
-- Translation key for the rest of the plan:
+- Translation key (the plan's task bodies use XCTest-style names from the original draft):
   - `XCTAssertEqual(a, b)` → `#expect(a == b)`
   - `XCTAssertTrue(x)` / `XCTAssertFalse(x)` → `#expect(x)` / `#expect(!x)`
   - `XCTAssertThrowsError(try f()) { XCTAssertEqual($0 as? E, .case) }` → `#expect(throws: E.case) { try f() }`
   - `XCTUnwrap(x)` → `try #require(x)`
   - Test methods drop the `test` prefix and `()` becomes the test name; mark each with `@MainActor` when SwiftData is involved.
-- Spec section paths reference `todoosx/` subdir; with this amendment, "models" live under `Sources/TodoosxKit/Models/`, "services" under `Sources/TodoosxKit/Services/`, etc.
+- Spec section paths reference `todoosx/` subdir; "models" live under `Sources/TodoosxKit/Models/`, "services" under `Sources/TodoosxKit/Services/`, etc.
+
+> **Historical note:** During Tasks 0–14 the test target lived at `Sources/todoosx-test/` and ran via a custom `@main` that called `Testing.__swiftPMEntryPoint()`. This was a workaround for a machine that only had Command Line Tools (no Xcode `xctest` runner, no SwiftData macro plugins). Once Xcode was installed and its license accepted, the project was refactored to the conventional layout above and the workaround was removed.
 
 **Important conventions used throughout this plan:**
 - All `Date`s in tests are constructed from explicit components in the local time zone via a helper, never `Date()`-now.
 - All SwiftData calls happen on `MainActor`. `@Test` functions touching SwiftData are marked `@MainActor`.
-- Every task ends with `swift run todoosx-test` passing and a commit.
+- Every task ends with `swift test` passing and a commit.
 - File paths are relative to repo root: `/Users/al03195220/github.com/toy/todoosx`.
 
 ---
