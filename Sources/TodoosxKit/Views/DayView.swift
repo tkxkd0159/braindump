@@ -14,7 +14,7 @@ public struct DayView: View {
         let day = dayService.day(for: state.selectedDate)
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                placeholderSection("Brain Dump")
+                BrainDumpSection(day: day, isReadOnly: state.isPast)
                 Divider()
                 placeholderSection("Top 3")
             }
