@@ -85,3 +85,57 @@ import SwiftData
     let today = dayService.day(for: TestDate.at(2026, 5, 22))
     #expect(today.items.count == 1)
 }
+
+@MainActor
+@Test func rolloverHandlesMultiDayGap() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let day19 = dayService.day(for: TestDate.at(2026, 5, 19))
+    let day20 = dayService.day(for: TestDate.at(2026, 5, 20))
+    let day21 = dayService.day(for: TestDate.at(2026, 5, 21))
+    let a = taskService.addBrainDumpItem(title: "From 19", on: day19)
+    let b = taskService.addBrainDumpItem(title: "From 20", on: day20)
+    let c = taskService.addBrainDumpItem(title: "From 21", on: day21)
+
+    dayService.rollover(now: TestDate.at(2026, 5, 22))
+
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+    let ids = Set(today.items.map(\.id))
+    #expect(ids == Set([a.id, b.id, c.id]))
+    #expect(day19.items.isEmpty)
+    #expect(day20.items.isEmpty)
+    #expect(day21.items.isEmpty)
+}
+
+@MainActor
+@Test func rolloverRemovesMovedItemFromYesterdayTop3() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let yesterday = dayService.day(for: TestDate.at(2026, 5, 21))
+    let item = taskService.addBrainDumpItem(title: "Top", on: yesterday)
+    try taskService.escalate(item, on: yesterday)
+    #expect(yesterday.top3ItemIDs == [item.id])
+
+    dayService.rollover(now: TestDate.at(2026, 5, 22))
+
+    #expect(yesterday.top3ItemIDs.isEmpty)
+}
+
+@MainActor
+@Test func rolloverKeepsTop3EntryForCompletedItem() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let scheduleService = ScheduleService(context: context)
+    let yesterday = dayService.day(for: TestDate.at(2026, 5, 21))
+    let done = taskService.addBrainDumpItem(title: "Top done", on: yesterday)
+    try taskService.escalate(done, on: yesterday)
+    let entry = try scheduleService.schedule(done, on: yesterday, startHour: 9, durationHours: 1)
+    scheduleService.setCompleted(entry, true)
+
+    dayService.rollover(now: TestDate.at(2026, 5, 22))
+
+    #expect(yesterday.top3ItemIDs == [done.id])
+}
