@@ -20,7 +20,7 @@ public struct DayView: View {
             }
             .frame(maxHeight: .infinity)
             Divider()
-            placeholderSection("Schedule")
+            ScheduleSection(day: day, isReadOnly: state.isPast)
                 .frame(maxHeight: .infinity)
         }
         .background(Color(nsColor: .windowBackgroundColor))

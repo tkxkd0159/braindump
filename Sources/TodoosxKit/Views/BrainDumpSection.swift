@@ -89,6 +89,7 @@ public struct BrainDumpSection: View {
             }
         }
         .padding(.vertical, 4)
+        .draggable(TaskItemDragPayload(id: item.id))
     }
 
     private func submitNew() {

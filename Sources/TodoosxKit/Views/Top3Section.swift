@@ -44,8 +44,9 @@ public struct Top3Section: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
+    @ViewBuilder
     private func slotRow(index: Int, item: TaskItem?) -> some View {
-        HStack(spacing: 8) {
+        let base = HStack(spacing: 8) {
             Text("\(index + 1).")
                 .foregroundStyle(.secondary)
                 .frame(width: 20, alignment: .leading)
@@ -73,5 +74,11 @@ public struct Top3Section: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(item == nil ? Color.gray.opacity(0.04) : Color.clear)
         )
+
+        if let item, !isReadOnly {
+            base.draggable(TaskItemDragPayload(id: item.id))
+        } else {
+            base
+        }
     }
 }
