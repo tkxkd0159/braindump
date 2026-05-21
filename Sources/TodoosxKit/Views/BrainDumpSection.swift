@@ -70,6 +70,15 @@ public struct BrainDumpSection: View {
             Spacer()
             if !isReadOnly {
                 Button {
+                    try? taskService.escalate(item, on: day)
+                } label: {
+                    Image(systemName: day.top3ItemIDs.contains(item.id) ? "star.fill" : "star")
+                        .foregroundStyle(day.top3ItemIDs.contains(item.id) ? Color.yellow : .secondary)
+                }
+                .buttonStyle(.borderless)
+                .disabled(!day.top3ItemIDs.contains(item.id) && day.top3ItemIDs.count >= 3)
+
+                Button {
                     taskService.delete(item)
                 } label: {
                     Image(systemName: "xmark")

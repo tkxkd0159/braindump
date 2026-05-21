@@ -16,7 +16,7 @@ public struct DayView: View {
             HStack(spacing: 0) {
                 BrainDumpSection(day: day, isReadOnly: state.isPast)
                 Divider()
-                placeholderSection("Top 3")
+                Top3Section(day: day, isReadOnly: state.isPast)
             }
             .frame(maxHeight: .infinity)
             Divider()
