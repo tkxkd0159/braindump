@@ -21,4 +21,31 @@ public final class DayService {
         try? context.save()
         return day
     }
+
+    public func rollover(now: Date) {
+        let today = now.startOfLocalDay()
+        let todayDay = day(for: today)
+
+        let pastDescriptor = FetchDescriptor<Day>(
+            predicate: #Predicate<Day> { $0.date < today }
+        )
+        guard let pastDays = try? context.fetch(pastDescriptor) else { return }
+
+        for past in pastDays {
+            let itemsSnapshot = past.items
+            for item in itemsSnapshot {
+                let completedHere = past.schedule.contains {
+                    $0.item?.id == item.id && $0.isCompleted
+                }
+                if completedHere { continue }
+
+                let toRemove = past.schedule.filter { $0.item?.id == item.id }
+                for e in toRemove { context.delete(e) }
+
+                past.top3ItemIDs.removeAll { $0 == item.id }
+                item.day = todayDay
+            }
+        }
+        try? context.save()
+    }
 }
