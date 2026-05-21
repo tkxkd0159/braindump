@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>todoosx</string>
+    <string>ToDoHT</string>
     <key>CFBundleIdentifier</key>
     <string>com.todoosx.app</string>
     <key>CFBundleName</key>
-    <string>todoosx</string>
+    <string>ToDo</string>
     <key>CFBundleDisplayName</key>
-    <string>todoosx</string>
+    <string>ToDo</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
