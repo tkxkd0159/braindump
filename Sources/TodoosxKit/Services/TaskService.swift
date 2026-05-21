@@ -30,4 +30,24 @@ public final class TaskService {
         context.delete(item)
         try? context.save()
     }
+
+    public func escalate(_ item: TaskItem, on day: Day) throws {
+        if day.top3ItemIDs.contains(item.id) { return }
+        guard day.top3ItemIDs.count < 3 else { throw TodoError.top3Full }
+        day.top3ItemIDs.append(item.id)
+        try? context.save()
+    }
+
+    public func deescalate(_ item: TaskItem, on day: Day) {
+        day.top3ItemIDs.removeAll { $0 == item.id }
+        try? context.save()
+    }
+
+    public func reorderTop3(on day: Day, ids: [UUID]) {
+        let existing = Set(day.top3ItemIDs)
+        let filtered = ids.filter { existing.contains($0) }
+        guard Set(filtered) == existing else { return }
+        day.top3ItemIDs = filtered
+        try? context.save()
+    }
 }

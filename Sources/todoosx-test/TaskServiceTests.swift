@@ -44,3 +44,98 @@ import SwiftData
     let remaining = try context.fetch(FetchDescriptor<TaskItem>())
     #expect(remaining.count == 0)
 }
+
+@MainActor
+@Test func escalateAddsToTop3() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let item = taskService.addBrainDumpItem(title: "A", on: today)
+    try taskService.escalate(item, on: today)
+
+    #expect(today.top3ItemIDs == [item.id])
+}
+
+@MainActor
+@Test func escalateIsIdempotent() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let item = taskService.addBrainDumpItem(title: "A", on: today)
+    try taskService.escalate(item, on: today)
+    try taskService.escalate(item, on: today)
+
+    #expect(today.top3ItemIDs == [item.id])
+}
+
+@MainActor
+@Test func escalateThrowsWhenTop3Full() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let a = taskService.addBrainDumpItem(title: "A", on: today)
+    let b = taskService.addBrainDumpItem(title: "B", on: today)
+    let c = taskService.addBrainDumpItem(title: "C", on: today)
+    let d = taskService.addBrainDumpItem(title: "D", on: today)
+    try taskService.escalate(a, on: today)
+    try taskService.escalate(b, on: today)
+    try taskService.escalate(c, on: today)
+
+    #expect(throws: TodoError.top3Full) {
+        try taskService.escalate(d, on: today)
+    }
+}
+
+@MainActor
+@Test func deescalateRemoves() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let a = taskService.addBrainDumpItem(title: "A", on: today)
+    let b = taskService.addBrainDumpItem(title: "B", on: today)
+    try taskService.escalate(a, on: today)
+    try taskService.escalate(b, on: today)
+    taskService.deescalate(a, on: today)
+
+    #expect(today.top3ItemIDs == [b.id])
+}
+
+@MainActor
+@Test func reorderTop3() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let a = taskService.addBrainDumpItem(title: "A", on: today)
+    let b = taskService.addBrainDumpItem(title: "B", on: today)
+    let c = taskService.addBrainDumpItem(title: "C", on: today)
+    try taskService.escalate(a, on: today)
+    try taskService.escalate(b, on: today)
+    try taskService.escalate(c, on: today)
+
+    taskService.reorderTop3(on: today, ids: [c.id, a.id, b.id])
+    #expect(today.top3ItemIDs == [c.id, a.id, b.id])
+}
+
+@MainActor
+@Test func deleteRemovesFromTop3() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let a = taskService.addBrainDumpItem(title: "A", on: today)
+    try taskService.escalate(a, on: today)
+    taskService.delete(a)
+
+    #expect(today.top3ItemIDs.isEmpty)
+}
