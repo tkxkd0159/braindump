@@ -36,4 +36,14 @@ public final class ScheduleService {
         try? context.save()
         return entry
     }
+
+    public func unschedule(_ entry: ScheduleEntry) {
+        context.delete(entry)
+        try? context.save()
+    }
+
+    public func setCompleted(_ entry: ScheduleEntry, _ completed: Bool) {
+        entry.isCompleted = completed
+        try? context.save()
+    }
 }

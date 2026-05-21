@@ -106,3 +106,29 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
 
     #expect(day.schedule.count == 2)
 }
+
+@MainActor
+@Test func unscheduleDeletesEntryKeepsItem() throws {
+    let (context, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+
+    scheduleService.unschedule(entry)
+
+    #expect(day.schedule.count == 0)
+    let items = try context.fetch(FetchDescriptor<TaskItem>())
+    #expect(items.count == 1)
+}
+
+@MainActor
+@Test func setCompletedTogglesFlag() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+    #expect(entry.isCompleted == false)
+
+    scheduleService.setCompleted(entry, true)
+    #expect(entry.isCompleted == true)
+    scheduleService.setCompleted(entry, false)
+    #expect(entry.isCompleted == false)
+}
