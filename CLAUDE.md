@@ -16,11 +16,14 @@ Requires macOS 14+ and Xcode (full Xcode, not just Command Line Tools — see [T
 swift build                       # build library + app
 swift test                        # run all tests
 swift test --filter <name>        # run a single test (substring match on @Test function name)
-swift run todoosx                 # launch the SwiftUI app
+./scripts/run-app.sh              # build, wrap in .app bundle, open the app
+CONFIG=release ./scripts/run-app.sh   # release build of the app bundle
 swift build -c release --target todoosx   # release build of app only
                                           # (release build of full package fails because the test
                                           # target uses @testable; this is normal)
 ```
+
+**Do not use `swift run todoosx` to launch the app.** It runs the binary, but macOS won't draw a window because a bare Mach-O is not treated as a GUI app. `scripts/run-app.sh` assembles a minimal `.app` bundle around the built binary (`scripts/Info.plist` is the bundle's `Info.plist`), ad-hoc-codesigns it, and `open`s it.
 
 ## Architecture
 
