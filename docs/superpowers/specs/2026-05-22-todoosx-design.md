@@ -174,25 +174,29 @@ Click the small "x" on the schedule block. The `ScheduleEntry` is deleted. The i
 
 ### Rollover
 
-Triggered by `AppState` whenever the current "today" date changes from a previously observed value (including on launch when the last-observed date is in the past).
+Triggered by `AppState` on launch and whenever the observed "today" changes (e.g., the app sat open through midnight).
+
+**Design intent:** past days should preserve a true record of what happened — *what completed*, *when*. So rollover only **moves uncompleted items forward**; everything else stays put.
 
 Algorithm:
 
 1. Compute `today = startOfToday()`.
-2. Load all `Day` records where `date < today`, oldest first.
-3. For each such `Day d`:
-   1. Determine "uncompleted items" on `d`: any `TaskItem` belonging to `d` for which no `ScheduleEntry` on `d` has `isCompleted == true`.
-   2. For each uncompleted item:
-      - Re-parent it to today's `Day` (`item.day = today`).
-   3. Delete every `ScheduleEntry` on `d` (whether completed or not — its history value is "did the item complete or not", and items that didn't complete are now on a new day).
-   4. Clear `d.top3ItemIDs`.
-4. Mark today's `Day` as "rolled over from" so we do not re-process. (Implementation note: we know rollover has happened for today as soon as today's `Day` exists; a launch only re-runs steps 1–3 if today's `Day` did not yet exist before this run.)
+2. Call `dayService.day(for: today)` so today exists.
+3. Fetch all `Day` records where `date < today`.
+4. For each such `Day d`:
+   - For each `TaskItem t` in `d.items`:
+     - **If `t` has at least one `ScheduleEntry` on `d` with `isCompleted == true`**: leave `t` on `d`. Its schedule entries (completed and not) stay too — they are the record.
+     - **Else**: re-parent `t` to today (`t.day = today`). Delete any `ScheduleEntry` on `d` that references `t`. Remove `t.id` from `d.top3ItemIDs` if present.
 
-Rollover is idempotent: running it twice on the same calendar day is a no-op.
+That's it. We don't track a "rolled over" flag — the algorithm is naturally idempotent:
+
+- Running it twice on the same day moves nothing the second time, because uncompleted items are no longer on past days.
+- Multi-day gaps just mean more `Day d` records to iterate; same logic applies.
 
 **Edge cases:**
-- Re-parenting items can leave an old `Day` with no items and no schedule. We keep the empty `Day` as a record. (History should still show "you had nothing on May 21".)
-- If a `Day` had only items that were *all* completed, no items move; we still delete that day's schedule entries (already in their terminal state) and clear top 3.
+- An old `Day` whose items all completed: stays as-is (a "perfect day" record).
+- An old `Day` whose items all rolled forward: ends up with no items and no schedule entries. We keep it as a `Day` record but it'll render as an empty sheet in history. That's accurate — nothing was completed that day.
+- An item that had a completed entry **and** an uncompleted entry on the same day (e.g., "write report" 9-10 completed, "write report" 14-15 not completed — same item scheduled twice): treated as completed for rollover purposes, stays on `d`. Both schedule entries remain.
 
 ## Service contracts
 
@@ -255,11 +259,12 @@ func makeInMemoryContext() throws -> ModelContext {
 - `day(for:)` normalizes any `Date` to start-of-day in the local time zone.
 - `day(for:)` creates a new `Day` for a new date.
 - `rollover` moves uncompleted items from yesterday to today's brain dump.
-- `rollover` leaves completed items behind (they stay associated with the day they were completed on).
-- `rollover` clears yesterday's `top3ItemIDs`.
-- `rollover` deletes yesterday's schedule entries.
+- `rollover` leaves completed items on the day they were completed (item, schedule entries, and top 3 reference all preserved).
+- `rollover` deletes only the schedule entries that reference moved items; completed items' entries are kept.
+- `rollover` removes only moved items' ids from yesterday's `top3ItemIDs`; ids of completed items stay.
 - `rollover` is idempotent: running twice has the same effect as running once.
-- `rollover` handles multi-day gaps (today opens after 3 days away).
+- `rollover` handles multi-day gaps (today opens after 3 days away). All uncompleted items from any past day land in today's brain dump.
+- `rollover` leaves the "perfect day" case untouched (a `Day` whose items all completed has no fields modified).
 
 **TaskServiceTests**
 - Add appends to `Day.items`.
