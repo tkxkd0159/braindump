@@ -2,22 +2,18 @@
 import PackageDescription
 import Foundation
 
-// CommandLineTools doesn't expose the Swift Testing framework via SwiftPM's
-// usual search paths, so the test executable wires them in by hand. The app
-// target doesn't need these.
+// Command Line Tools doesn't ship the macro plugins SwiftData, SwiftUI, and
+// Foundation's #Predicate rely on. When Xcode is installed, point the Swift
+// compiler at Xcode's plugin directory so those macros expand.
+let xcodePluginsPath = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins"
+let extraPluginFlags: [String] = FileManager.default.fileExists(atPath: xcodePluginsPath)
+    ? ["-plugin-path", xcodePluginsPath]
+    : []
+
+// Swift Testing framework lives in Command Line Tools and needs explicit
+// search/rpath wiring so the test executable can find it at build and run.
 let testingFrameworksPath = "/Library/Developer/CommandLineTools/Library/Developer/Frameworks"
 let testingLibsPath = "/Library/Developer/CommandLineTools/Library/Developer/usr/lib"
-
-// SwiftDataMacros isn't shipped with Command Line Tools; it's bundled with
-// Xcode. Load the plugin explicitly so @Model works when only CLT is on PATH.
-let swiftDataMacrosPlugin = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins/libSwiftDataMacros.dylib"
-
-let swiftDataMacroFlag: [String] = {
-    if FileManager.default.fileExists(atPath: swiftDataMacrosPlugin) {
-        return ["-load-plugin-library", swiftDataMacrosPlugin]
-    }
-    return []
-}()
 
 let package = Package(
     name: "todoosx",
@@ -31,20 +27,20 @@ let package = Package(
         .target(
             name: "TodoosxKit",
             path: "Sources/TodoosxKit",
-            swiftSettings: swiftDataMacroFlag.isEmpty ? nil : [.unsafeFlags(swiftDataMacroFlag)]
+            swiftSettings: extraPluginFlags.isEmpty ? nil : [.unsafeFlags(extraPluginFlags)]
         ),
         .executableTarget(
             name: "todoosx",
             dependencies: ["TodoosxKit"],
             path: "Sources/todoosx",
-            swiftSettings: swiftDataMacroFlag.isEmpty ? nil : [.unsafeFlags(swiftDataMacroFlag)]
+            swiftSettings: extraPluginFlags.isEmpty ? nil : [.unsafeFlags(extraPluginFlags)]
         ),
         .executableTarget(
             name: "todoosx-test",
             dependencies: ["TodoosxKit"],
             path: "Sources/todoosx-test",
             swiftSettings: [
-                .unsafeFlags(["-F", testingFrameworksPath] + swiftDataMacroFlag)
+                .unsafeFlags(["-F", testingFrameworksPath] + extraPluginFlags)
             ],
             linkerSettings: [
                 .unsafeFlags([
