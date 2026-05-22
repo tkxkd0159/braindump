@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 public struct BrainDumpSection: View {
     @Environment(\.modelContext) private var context
@@ -13,6 +13,7 @@ public struct BrainDumpSection: View {
     @State private var newTags: [String] = []
     @State private var hoveredID: UUID?
     @State private var expandedIDs: Set<UUID> = []
+    @State private var isDropTargeted: Bool = false
     @FocusState private var addFocus: AddFieldFocus?
 
     private enum AddFieldFocus: Hashable { case title, notes }
@@ -54,9 +55,35 @@ public struct BrainDumpSection: View {
                         addRow
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxHeight: 500)
         }
+        .contentShape(Rectangle())
+        .overlay(
+            Rectangle()
+                .strokeBorder(Theme.Palette.primary, lineWidth: 1)
+                .opacity(isDropTargeted ? 1 : 0)
+                .padding(-4)
+                .allowsHitTesting(false)
+        )
+        .dropDestination(for: TaskItemDragPayload.self) { payloads, _ in
+            handleDemoteDrop(payloads: payloads)
+        } isTargeted: { targeted in
+            isDropTargeted = targeted && !isReadOnly && hasTop3CandidateInDay
+        }
+    }
+
+    private var hasTop3CandidateInDay: Bool {
+        !day.top3ItemIDs.isEmpty
+    }
+
+    private func handleDemoteDrop(payloads: [TaskItemDragPayload]) -> Bool {
+        guard !isReadOnly, let payload = payloads.first else { return false }
+        guard day.top3ItemIDs.contains(payload.id) else { return false }
+        guard let item = day.items.first(where: { $0.id == payload.id }) else { return false }
+        taskService.deescalate(item, on: day)
+        return true
     }
 
     private var header: some View {
@@ -92,7 +119,6 @@ public struct BrainDumpSection: View {
         let completed = isCompleted(item)
         let hovered = hoveredID == item.id
         let expanded = expandedIDs.contains(item.id)
-        let canPromote = day.top3ItemIDs.count < 3
         let hasDetails = !item.notes.isEmpty || !item.tags.isEmpty
 
         return HStack(alignment: .top, spacing: 14) {
@@ -130,14 +156,8 @@ public struct BrainDumpSection: View {
                         help: "Edit",
                         visible: hovered
                     ) {
-                        openDetail?(TaskDetailFocus(item: item, entry: scheduled, startInEditMode: true))
-                    }
-                    IconActionButton(
-                        systemName: "arrow.up.to.line",
-                        help: "Promote to Top Priorities",
-                        visible: hovered && canPromote
-                    ) {
-                        try? taskService.escalate(item, on: day)
+                        openDetail?(
+                            TaskDetailFocus(item: item, entry: scheduled, startInEditMode: true))
                     }
                 }
             }
@@ -152,7 +172,8 @@ public struct BrainDumpSection: View {
                 )
         )
         .contentShape(Rectangle())
-        .onHover { inside in hoveredID = inside ? item.id : (hoveredID == item.id ? nil : hoveredID) }
+        .onHover { inside in hoveredID = inside ? item.id : (hoveredID == item.id ? nil : hoveredID)
+        }
         .onTapGesture {
             guard hasDetails else { return }
             if expanded {
@@ -180,7 +201,8 @@ public struct BrainDumpSection: View {
 
     private var addRow: some View {
         let isFocused = addFocus != nil
-        let shouldExpand = isFocused || !newNotes.isEmpty || !newTags.isEmpty || !newTagDraft.isEmpty
+        let shouldExpand =
+            isFocused || !newNotes.isEmpty || !newTags.isEmpty || !newTagDraft.isEmpty
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 14) {
@@ -192,19 +214,23 @@ public struct BrainDumpSection: View {
                     .foregroundStyle(Theme.Palette.onSurface)
                     .focused($addFocus, equals: .title)
                     .onSubmit(submitNew)
+                    .onKeyPress(.escape) { handleEscape() }
                 Spacer(minLength: 0)
             }
             if shouldExpand {
                 VStack(alignment: .leading, spacing: 8) {
-                    TextField("Description (optional)", text: $newNotes)
+                    TextField("Description", text: $newNotes)
                         .textFieldStyle(.plain)
                         .font(Theme.Font.bodyMd)
                         .foregroundStyle(Theme.Palette.onSurfaceVariant)
                         .padding(8)
                         .background(Theme.Palette.surfaceContainer)
-                        .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
+                        .overlay(
+                            Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1)
+                        )
                         .focused($addFocus, equals: .notes)
                         .onSubmit(submitNew)
+                        .onKeyPress(.escape) { handleEscape() }
                     TagInputField(
                         tags: $newTags,
                         draft: $newTagDraft,
@@ -220,7 +246,8 @@ public struct BrainDumpSection: View {
                             .frame(height: 28)
                             .foregroundStyle(Theme.Palette.onPrimary)
                             .background(Theme.Palette.primary)
-                            .disabled(newTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .disabled(
+                                newTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
                 .padding(.leading, 34)
@@ -240,7 +267,8 @@ public struct BrainDumpSection: View {
     private func submitNew() {
         let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else { return }
-        let trimmedTagDraft = newTagDraft.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let trimmedTagDraft = newTagDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
         if !trimmedTagDraft.isEmpty, !newTags.contains(trimmedTagDraft) {
             newTags.append(trimmedTagDraft)
         }
@@ -255,5 +283,19 @@ public struct BrainDumpSection: View {
         newTags = []
         newTagDraft = ""
         addFocus = nil
+    }
+
+    private func handleEscape() -> KeyPress.Result {
+        let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedTitle.isEmpty {
+            newTitle = ""
+            newNotes = ""
+            newTags = []
+            newTagDraft = ""
+            addFocus = nil
+        } else {
+            submitNew()
+        }
+        return .handled
     }
 }

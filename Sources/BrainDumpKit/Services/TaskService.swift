@@ -66,6 +66,33 @@ public final class TaskService {
         try? context.save()
     }
 
+    /// Drop-onto-slot handler used by drag-and-drop into Top3.
+    /// - Item already in Top3: swap with the item at `targetIndex` (or move-to-end
+    ///   when target is past the dense array's bounds).
+    /// - Item not in Top3 + slot occupied: replace; the displaced item falls out
+    ///   of Top3 (back to brain dump).
+    /// - Item not in Top3 + slot empty (target ≥ count) + room available: append.
+    /// - Item not in Top3 + Top3 full + target past end: no-op.
+    public func moveToTop3Slot(_ item: TaskItem, at targetIndex: Int, on day: Day) {
+        var ids = day.top3ItemIDs
+        if let oldIndex = ids.firstIndex(of: item.id) {
+            if targetIndex < ids.count {
+                ids.swapAt(oldIndex, targetIndex)
+            } else {
+                ids.remove(at: oldIndex)
+                ids.append(item.id)
+            }
+        } else if targetIndex < ids.count {
+            ids[targetIndex] = item.id
+        } else if ids.count < 3 {
+            ids.append(item.id)
+        } else {
+            return
+        }
+        day.top3ItemIDs = ids
+        try? context.save()
+    }
+
     public func reorderTop3(on day: Day, ids: [UUID]) {
         let existing = Set(day.top3ItemIDs)
         let filtered = ids.filter { existing.contains($0) }

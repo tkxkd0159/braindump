@@ -109,6 +109,113 @@ import SwiftData
 }
 
 @MainActor
+@Test func moveToTop3SlotAppendsWhenEmpty() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let a = taskService.addBrainDumpItem(title: "A", on: today)
+    taskService.moveToTop3Slot(a, at: 0, on: today)
+    #expect(today.top3ItemIDs == [a.id])
+}
+
+@MainActor
+@Test func moveToTop3SlotEmptySlotPastEndAppends() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let a = taskService.addBrainDumpItem(title: "A", on: today)
+    let b = taskService.addBrainDumpItem(title: "B", on: today)
+    try taskService.escalate(a, on: today)
+
+    // Drop b on "Priority 3" slot when only Priority 1 is filled -> append at end of dense array.
+    taskService.moveToTop3Slot(b, at: 2, on: today)
+    #expect(today.top3ItemIDs == [a.id, b.id])
+}
+
+@MainActor
+@Test func moveToTop3SlotReplacesOccupant() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let a = taskService.addBrainDumpItem(title: "A", on: today)
+    let b = taskService.addBrainDumpItem(title: "B", on: today)
+    let c = taskService.addBrainDumpItem(title: "C", on: today)
+    let d = taskService.addBrainDumpItem(title: "D", on: today)
+    try taskService.escalate(a, on: today)
+    try taskService.escalate(b, on: today)
+    try taskService.escalate(c, on: today)
+
+    // Drag brain-dump d onto Priority 1 -> a is displaced back to brain dump.
+    taskService.moveToTop3Slot(d, at: 0, on: today)
+    #expect(today.top3ItemIDs == [d.id, b.id, c.id])
+}
+
+@MainActor
+@Test func moveToTop3SlotSwapsWithinTop3() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let a = taskService.addBrainDumpItem(title: "A", on: today)
+    let b = taskService.addBrainDumpItem(title: "B", on: today)
+    let c = taskService.addBrainDumpItem(title: "C", on: today)
+    try taskService.escalate(a, on: today)
+    try taskService.escalate(b, on: today)
+    try taskService.escalate(c, on: today)
+
+    // Drag Priority 2 (b) onto Priority 1 -> swap with a.
+    taskService.moveToTop3Slot(b, at: 0, on: today)
+    #expect(today.top3ItemIDs == [b.id, a.id, c.id])
+
+    // Drag Priority 3 (c) onto Priority 1 (b after swap) -> swap with b.
+    taskService.moveToTop3Slot(c, at: 0, on: today)
+    #expect(today.top3ItemIDs == [c.id, a.id, b.id])
+}
+
+@MainActor
+@Test func moveToTop3SlotSelfDropIsNoop() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let a = taskService.addBrainDumpItem(title: "A", on: today)
+    let b = taskService.addBrainDumpItem(title: "B", on: today)
+    try taskService.escalate(a, on: today)
+    try taskService.escalate(b, on: today)
+
+    taskService.moveToTop3Slot(a, at: 0, on: today)
+    #expect(today.top3ItemIDs == [a.id, b.id])
+}
+
+@MainActor
+@Test func moveToTop3SlotIgnoresWhenFullAndTargetPastEnd() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let a = taskService.addBrainDumpItem(title: "A", on: today)
+    let b = taskService.addBrainDumpItem(title: "B", on: today)
+    let c = taskService.addBrainDumpItem(title: "C", on: today)
+    let d = taskService.addBrainDumpItem(title: "D", on: today)
+    try taskService.escalate(a, on: today)
+    try taskService.escalate(b, on: today)
+    try taskService.escalate(c, on: today)
+
+    // d not in top3, top3 full, targetIndex past end -> no-op (only filled-slot replace adds).
+    taskService.moveToTop3Slot(d, at: 5, on: today)
+    #expect(today.top3ItemIDs == [a.id, b.id, c.id])
+}
+
+@MainActor
 @Test func reorderTop3() throws {
     let context = try InMemoryStore.makeContext()
     let dayService = DayService(context: context)

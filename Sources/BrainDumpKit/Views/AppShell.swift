@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 public struct AppShell: View {
     @Environment(\.modelContext) private var context
@@ -53,11 +53,8 @@ private struct Sidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Deep Work Planner")
-                    .font(Theme.Font.headlineMd)
-                    .foregroundStyle(Theme.Palette.primary)
-                Text("Research Fellow")
-                    .font(Theme.Font.labelMd)
+                Text("Daily Timebox Planner")
+                    .font(Theme.Font.headlineSmall)
                     .tracking(0.5)
                     .foregroundStyle(Theme.Palette.onSurfaceVariant)
             }
@@ -66,8 +63,12 @@ private struct Sidebar: View {
             .padding(.bottom, 40)
 
             VStack(alignment: .leading, spacing: 6) {
-                NavItem(icon: "calendar.day.timeline.left", label: "Today", destination: .today, state: state)
-                NavItem(icon: "list.bullet.clipboard", label: "Tasks", destination: .tasks, state: state)
+                NavItem(
+                    icon: "calendar.day.timeline.left", label: "Today", destination: .today,
+                    state: state)
+                NavItem(
+                    icon: "list.bullet.clipboard", label: "Tasks", destination: .tasks, state: state
+                )
                 NavItem(icon: "tray.full", label: "Backlog", destination: .backlog, state: state)
             }
             .padding(.horizontal, 16)
@@ -252,12 +253,14 @@ private struct DateHeader: View {
                     MonthCalendarView(state: state, dismiss: { showDatePicker = false })
                 }
 
-                Text("\u{201C}\(state.currentWiseSaying.quote)\u{201D} — \(state.currentWiseSaying.author)")
-                    .font(Theme.Font.bodyMdItalic)
-                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: 640, alignment: .leading)
+                Text(
+                    "\u{201C}\(state.currentWiseSaying.quote)\u{201D}\u{00A0}— \(state.currentWiseSaying.author)"
+                )
+                .font(Theme.Font.bodyMdItalic)
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 640, alignment: .leading)
             }
             Spacer()
             WorkspaceAvatar()
