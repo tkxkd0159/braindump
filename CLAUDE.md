@@ -49,8 +49,8 @@ Sources/
     Models/               ← SwiftData @Model classes + TodoError + drag payload
     Services/             ← Day/Task/Schedule services (business logic)
     App/                  ← AppState (@Observable, owns selected date)
-    Views/                ← SwiftUI views — AppShell, DayView, three section views
-    Support/              ← Date+StartOfDay
+    Views/                ← SwiftUI views — AppShell + DayView, three section views (Top3/BrainDump/Schedule), TimeBlockSheet, TaskDetailSheet, SettingsSheet, MonthCalendarView, supporting chips/rows
+    Support/              ← Date+StartOfDay, TimeFormat, Theme, Fonts, WiseSayings
 Tests/
   BrainDumpTests/         ← Swift Testing target (XCTest is NOT used)
     TestSupport/          ← InMemoryStore + TestDate helpers
@@ -62,6 +62,7 @@ Tests/
 - **Top 3 is an ordered id list on `Day`** (`top3ItemIDs: [UUID]`), not a relationship. Order matters; max 3 items.
 - **All business logic lives in services**, never in views. Views construct a service inline from the `ModelContext`. Tests exercise services directly against an in-memory `ModelContainer` (`TestSupport/InMemoryStore.swift`).
 - **`AppState` is the only orchestrator** above the service layer. It owns `selectedDate`, runs `rollover` on init, and is created lazily by `AppShell` in `.onAppear` so it has access to the environment's `modelContext`.
+- **App-level settings** live on `AppState`: `dayStartHour`/`dayEndHour` (default 5/22, persisted to `UserDefaults`, validated to span ≥ 4 hours) and `isSidebarVisible` (in-memory only). Views read these directly; there's no separate settings object.
 
 ## Non-obvious behavior
 
@@ -72,9 +73,9 @@ Tests/
 
 **Read-only past days.** Views accept `isReadOnly: state.isPast` and hide add/edit/delete/drag affordances. Future days are not navigable in the first pass (`goToNextDay` clamps at today).
 
-**Schedule conflicts.** `ScheduleService.schedule(...)` validates `startHour in 5..23`, `durationHours >= 1`, `startHour + durationHours <= 24`, and that the half-open range `[start, start+duration)` does not overlap any existing entry on the day. Adjacent blocks (e.g., 9-10 then 10-11) are allowed; overlapping throws `TodoError.scheduleConflict`.
+**Schedule conflicts.** `ScheduleService.schedule(...)` operates on minutes since midnight: validates `durationMinutes >= 15`, `startMinute >= 0`, `startMinute + durationMinutes <= 1440`, and that the half-open range `[start, start+duration)` does not overlap any existing entry on the day. Adjacent blocks (e.g., 9:00-10:00 then 10:00-11:15) are allowed; overlapping throws `TodoError.scheduleConflict`. The day-window hours (`AppState.dayStartHour`/`dayEndHour`) bound what the grid *shows*, not what the service accepts.
 
-**Drag payload.** `TaskItemDragPayload` is a tiny `Codable` + `Transferable` wrapper around the item's UUID. Brain-dump and top-3 rows are `.draggable(...)`. Empty schedule slots are `.dropDestination(for: TaskItemDragPayload.self)`. On drop, `ScheduleSection` opens a `DurationPromptSheet`; the actual `schedule(...)` call happens after the sheet confirms.
+**Drag payload.** `TaskItemDragPayload` is a tiny `Codable` + `Transferable` wrapper around the item's UUID. Brain-dump and top-3 rows are `.draggable(...)`. Empty schedule slots are `.dropDestination(for: TaskItemDragPayload.self)`. On drop, `ScheduleSection` opens a `TimeBlockSheet` (Reminders-style start/end `DatePicker`s, 15-min snap); the actual `schedule(...)` call happens after the sheet confirms.
 
 ## Conventions
 
