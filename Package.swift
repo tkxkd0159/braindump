@@ -11,7 +11,10 @@ let package = Package(
     targets: [
         .target(
             name: "TodoosxKit",
-            path: "Sources/TodoosxKit"
+            path: "Sources/TodoosxKit",
+            resources: [
+                .process("Resources/Fonts"),
+            ]
         ),
         .executableTarget(
             name: "todoosx",

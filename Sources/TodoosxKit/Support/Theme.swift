@@ -22,6 +22,44 @@ public enum Theme {
         public static let inverseOnSurface = Color(hex: 0xEAF1FF)
     }
 
+    /// Curated Neo-Academic schedule-block palette. Index 0 matches the
+    /// historical "Deep Work" navy so existing entries render unchanged.
+    public enum BlockPalette {
+        public static let colors: [Color] = [
+            Color(hex: 0x000613), // navy (default)
+            Color(hex: 0xB22738), // crimson
+            Color(hex: 0x2F4F4F), // slate
+            Color(hex: 0x556B2F), // olive
+            Color(hex: 0x5D3754), // plum
+            Color(hex: 0xC2A77E), // sand
+            Color(hex: 0x2F6F6F), // teal
+            Color(hex: 0xA8553A)  // terracotta
+        ]
+
+        /// Foreground used on top of `colors[i]`. Sand uses dark text; the
+        /// rest use white for legibility.
+        public static let foregrounds: [Color] = [
+            Color(hex: 0xFFFFFF),
+            Color(hex: 0xFFFFFF),
+            Color(hex: 0xFFFFFF),
+            Color(hex: 0xFFFFFF),
+            Color(hex: 0xFFFFFF),
+            Color(hex: 0x2A1F12), // dark on sand
+            Color(hex: 0xFFFFFF),
+            Color(hex: 0xFFFFFF)
+        ]
+
+        public static func color(at index: Int) -> Color {
+            let safeIndex = max(0, min(colors.count - 1, index))
+            return colors[safeIndex]
+        }
+
+        public static func foreground(at index: Int) -> Color {
+            let safeIndex = max(0, min(foregrounds.count - 1, index))
+            return foregrounds[safeIndex]
+        }
+    }
+
     public enum Font {
         public static let displayLg = sans(size: 48, weight: .bold)
         public static let headlineLg = sans(size: 32, weight: .semibold)

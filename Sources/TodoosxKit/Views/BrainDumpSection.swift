@@ -5,20 +5,32 @@ public struct BrainDumpSection: View {
     @Environment(\.modelContext) private var context
     let day: Day
     let isReadOnly: Bool
+    let openDetail: ((TaskItem, ScheduleEntry?) -> Void)?
 
     @State private var newTitle: String = ""
-    @State private var editingID: UUID?
-    @State private var editingDraft: String = ""
+    @State private var hoveredID: UUID?
+    @State private var addFocused: Bool = false
+    @FocusState private var addFieldFocused: Bool
 
-    public init(day: Day, isReadOnly: Bool) {
+    public init(
+        day: Day,
+        isReadOnly: Bool,
+        openDetail: ((TaskItem, ScheduleEntry?) -> Void)? = nil
+    ) {
         self.day = day
         self.isReadOnly = isReadOnly
+        self.openDetail = openDetail
     }
 
     private var taskService: TaskService { TaskService(context: context) }
 
-    private func isScheduled(_ item: TaskItem) -> Bool {
-        day.schedule.contains { $0.item?.id == item.id }
+    private var brainDumpItems: [TaskItem] {
+        let top3 = Set(day.top3ItemIDs)
+        return day.items.filter { !top3.contains($0.id) }
+    }
+
+    private func scheduleEntry(for item: TaskItem) -> ScheduleEntry? {
+        day.schedule.first { $0.item?.id == item.id }
     }
 
     private func isCompleted(_ item: TaskItem) -> Bool {
@@ -26,88 +38,133 @@ public struct BrainDumpSection: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Brain Dump")
-                .font(.title3.weight(.semibold))
-                .padding(.bottom, 4)
-
-            ForEach(day.items, id: \.id) { item in
-                row(for: item)
-            }
-
-            if !isReadOnly {
-                HStack {
-                    Image(systemName: "plus")
-                        .foregroundStyle(.secondary)
-                    TextField("Add to brain dump", text: $newTitle)
-                        .textFieldStyle(.plain)
-                        .onSubmit(submitNew)
+        VStack(alignment: .leading, spacing: 24) {
+            header
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(spacing: 12) {
+                    ForEach(brainDumpItems, id: \.id) { item in
+                        row(for: item)
+                    }
+                    if !isReadOnly {
+                        addRow
+                    }
                 }
-                .padding(.vertical, 6)
-                .padding(.horizontal, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.gray.opacity(0.06))
-                )
             }
-
-            Spacer()
+            .frame(maxHeight: 500)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Brain Dump")
+                .font(Theme.Font.sectionLabelHeavy)
+                .tracking(1.4)
+                .textCase(.uppercase)
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            Spacer()
+            if !isReadOnly {
+                Button {
+                    addFieldFocused = true
+                } label: {
+                    Image(systemName: "plus.circle")
+                        .font(.system(size: 18, weight: .regular))
+                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                }
+                .buttonStyle(.plain)
+                .help("Add brain-dump item")
+            }
+        }
+        .padding(.bottom, 8)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Theme.Palette.outlineVariant)
+                .frame(height: 1)
+        }
     }
 
     private func row(for item: TaskItem) -> some View {
-        HStack(spacing: 8) {
-            Circle()
-                .stroke(isCompleted(item) ? Color.accentColor : Color.secondary, lineWidth: 1)
-                .background(
-                    Circle().fill(isCompleted(item) ? Color.accentColor.opacity(0.6) : Color.clear)
-                )
-                .frame(width: 12, height: 12)
-            if editingID == item.id {
-                TextField("Title", text: $editingDraft)
-                    .textFieldStyle(.plain)
-                    .onSubmit { commitEdit(item) }
-            } else {
-                Text(item.title)
-                    .strikethrough(isCompleted(item))
-                    .foregroundStyle(isCompleted(item) ? .secondary : .primary)
-                    .onTapGesture(count: 2) {
-                        if !isReadOnly {
-                            editingID = item.id
-                            editingDraft = item.title
-                        }
-                    }
-            }
-            Spacer()
-            if !isReadOnly {
-                Button {
-                    try? taskService.escalate(item, on: day)
-                } label: {
-                    Image(systemName: day.top3ItemIDs.contains(item.id) ? "star.fill" : "star")
-                        .foregroundStyle(day.top3ItemIDs.contains(item.id) ? Color.yellow : .secondary)
-                }
-                .buttonStyle(.borderless)
-                .disabled(!day.top3ItemIDs.contains(item.id) && day.top3ItemIDs.count >= 3)
+        let scheduled = scheduleEntry(for: item)
+        let completed = isCompleted(item)
+        let hovered = hoveredID == item.id
+        let canPromote = day.top3ItemIDs.count < 3
 
-                Button {
-                    taskService.delete(item)
-                } label: {
-                    Image(systemName: "xmark")
-                        .foregroundStyle(.secondary)
+        return HStack(alignment: .top, spacing: 14) {
+            SquareCheckbox(isOn: completed) {
+                guard !isReadOnly, let entry = scheduled else { return }
+                ScheduleService(context: context).setCompleted(entry, !entry.isCompleted)
+            }
+            .padding(.top, 2)
+            .disabled(isReadOnly || scheduled == nil)
+
+            VStack(alignment: .leading, spacing: 4) {
+                titleView(for: item, completed: completed)
+            }
+            Spacer(minLength: 0)
+            if !isReadOnly {
+                HStack(spacing: 4) {
+                    IconActionButton(
+                        systemName: "arrow.up.to.line",
+                        help: "Promote to Top Priorities",
+                        visible: hovered && canPromote
+                    ) {
+                        try? taskService.escalate(item, on: day)
+                    }
+                    IconActionButton(
+                        systemName: "xmark",
+                        help: "Delete",
+                        visible: hovered
+                    ) {
+                        taskService.delete(item)
+                    }
                 }
-                .buttonStyle(.borderless)
-                .opacity(0.6)
             }
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isScheduled(item) ? Color.accentColor.opacity(0.08) : Color.clear)
+        .padding(14)
+        .background(scheduled != nil ? Theme.Palette.surfaceContainer : Theme.Palette.surfaceContainerLowest)
+        .overlay(
+            Rectangle()
+                .strokeBorder(
+                    hovered ? Theme.Palette.primary : Theme.Palette.outlineVariant,
+                    lineWidth: 1
+                )
         )
+        .contentShape(Rectangle())
+        .onHover { inside in hoveredID = inside ? item.id : (hoveredID == item.id ? nil : hoveredID) }
+        .onTapGesture {
+            openDetail?(item, scheduled)
+        }
         .draggable(TaskItemDragPayload(id: item.id))
+    }
+
+    @ViewBuilder
+    private func titleView(for item: TaskItem, completed: Bool) -> some View {
+        Text(item.title)
+            .font(Theme.Font.bodyMd)
+            .strikethrough(completed)
+            .foregroundStyle(completed ? Theme.Palette.outline : Theme.Palette.onSurface)
+    }
+
+    private var addRow: some View {
+        HStack(alignment: .center, spacing: 14) {
+            SquareCheckbox(isOn: false, action: {})
+                .disabled(true)
+            TextField("Add new task…", text: $newTitle)
+                .textFieldStyle(.plain)
+                .font(Theme.Font.bodyMd)
+                .foregroundStyle(Theme.Palette.onSurface)
+                .focused($addFieldFocused)
+                .onSubmit(submitNew)
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(Theme.Palette.surfaceContainerLowest)
+        .overlay(
+            Rectangle()
+                .strokeBorder(
+                    addFieldFocused ? Theme.Palette.primary : Theme.Palette.outlineVariant,
+                    lineWidth: 1
+                )
+        )
     }
 
     private func submitNew() {
@@ -115,11 +172,5 @@ public struct BrainDumpSection: View {
         guard !trimmed.isEmpty else { return }
         taskService.addBrainDumpItem(title: trimmed, on: day)
         newTitle = ""
-    }
-
-    private func commitEdit(_ item: TaskItem) {
-        let trimmed = editingDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty { taskService.rename(item, to: trimmed) }
-        editingID = nil
     }
 }

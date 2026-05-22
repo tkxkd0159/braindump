@@ -5,59 +5,94 @@ public struct ScheduleBlockView: View {
     let isReadOnly: Bool
     let onToggleComplete: () -> Void
     let onRemove: () -> Void
+    let onTap: (() -> Void)?
+
+    @State private var hovered: Bool = false
 
     public init(
         entry: ScheduleEntry,
         isReadOnly: Bool,
         onToggleComplete: @escaping () -> Void,
-        onRemove: @escaping () -> Void
+        onRemove: @escaping () -> Void,
+        onTap: (() -> Void)? = nil
     ) {
         self.entry = entry
         self.isReadOnly = isReadOnly
         self.onToggleComplete = onToggleComplete
         self.onRemove = onRemove
+        self.onTap = onTap
     }
 
     public var body: some View {
-        HStack(spacing: 8) {
-            Button(action: onToggleComplete) {
-                Image(systemName: entry.isCompleted ? "checkmark.square.fill" : "square")
-                    .imageScale(.large)
-                    .foregroundStyle(entry.isCompleted ? Color.accentColor : .secondary)
-            }
-            .buttonStyle(.borderless)
-            .disabled(isReadOnly)
-
-            Text(entry.item?.title ?? "(deleted)")
-                .font(.body)
-                .strikethrough(entry.isCompleted)
-                .foregroundStyle(entry.isCompleted ? .secondary : .primary)
-
-            Spacer()
-
-            Text("\(entry.durationHours)h")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            if !isReadOnly {
-                Button(action: onRemove) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
+        HStack(alignment: .top, spacing: 0) {
+            Rectangle()
+                .fill(blockColor.opacity(0.65))
+                .frame(width: 4)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .top) {
+                    Text(entry.item?.title ?? "(deleted)")
+                        .font(Theme.Font.bodyLgSemibold)
+                        .strikethrough(entry.isCompleted)
+                        .foregroundStyle(foregroundColor.opacity(entry.isCompleted ? 0.6 : 1))
+                        .lineLimit(2)
+                    Spacer()
+                    trailingControl
                 }
-                .buttonStyle(.borderless)
-                .opacity(0.7)
+                Text(timeRange)
+                    .font(Theme.Font.caption)
+                    .foregroundStyle(foregroundColor.opacity(0.7))
             }
+            .padding(16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.accentColor.opacity(entry.isCompleted ? 0.10 : 0.18))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1)
-        )
+        .background(blockColor)
+        .contentShape(Rectangle())
+        .onHover { hovered = $0 }
+        .onTapGesture { onTap?() }
+    }
+
+    private var blockColor: Color {
+        Theme.BlockPalette.color(at: entry.colorIndex)
+    }
+
+    private var foregroundColor: Color {
+        Theme.BlockPalette.foreground(at: entry.colorIndex)
+    }
+
+    @ViewBuilder
+    private var trailingControl: some View {
+        HStack(spacing: 6) {
+            if !isReadOnly && hovered {
+                Button(action: onRemove) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(foregroundColor.opacity(0.85))
+                        .frame(width: 22, height: 22)
+                        .background(blockColor.opacity(0.65))
+                }
+                .buttonStyle(.plain)
+                .help("Remove from schedule")
+            }
+            Button(action: { if !isReadOnly { onToggleComplete() } }) {
+                Image(systemName: entry.isCompleted ? "checkmark.square.fill" : "lock.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(foregroundColor.opacity(entry.isCompleted ? 1 : 0.85))
+            }
+            .buttonStyle(.plain)
+            .disabled(isReadOnly)
+            .help(entry.isCompleted ? "Mark incomplete" : "Mark complete")
+        }
+    }
+
+    private var timeRange: String {
+        let start = entry.startHour
+        let end = entry.startHour + entry.durationHours
+        return "\(format(start)) — \(format(end))"
+    }
+
+    private func format(_ hour: Int) -> String {
+        let displayHour = hour == 24 ? 12 : (hour % 12 == 0 ? 12 : hour % 12)
+        let suffix = (hour >= 12 && hour < 24) ? "PM" : "AM"
+        return "\(displayHour):00 \(suffix)"
     }
 }

@@ -4,6 +4,7 @@ import SwiftData
 public struct DayView: View {
     @Environment(\.modelContext) private var context
     @Bindable var state: AppState
+    @State private var detailFocus: TaskDetailFocus?
 
     public init(state: AppState) {
         self.state = state
@@ -12,28 +13,29 @@ public struct DayView: View {
     public var body: some View {
         let dayService = DayService(context: context)
         let day = dayService.day(for: state.selectedDate)
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                BrainDumpSection(day: day, isReadOnly: state.isPast)
-                Divider()
-                Top3Section(day: day, isReadOnly: state.isPast)
-            }
-            .frame(maxHeight: .infinity)
-            Divider()
-            ScheduleSection(day: day, isReadOnly: state.isPast)
-                .frame(maxHeight: .infinity)
+        let openDetail: (TaskItem, ScheduleEntry?) -> Void = { item, entry in
+            detailFocus = TaskDetailFocus(item: item, entry: entry ?? day.schedule.first { $0.item?.id == item.id })
         }
-        .background(Color(nsColor: .windowBackgroundColor))
-        .id(day.persistentModelID)
-    }
+        GeometryReader { geo in
+            let gutter: CGFloat = 24
+            let available = max(0, geo.size.width - gutter)
+            let leftWidth = max(340, available * 5.0 / 12.0)
+            let rightWidth = max(440, available - leftWidth)
+            HStack(alignment: .top, spacing: gutter) {
+                VStack(alignment: .leading, spacing: 48) {
+                    Top3Section(day: day, isReadOnly: state.isPast, openDetail: openDetail)
+                    BrainDumpSection(day: day, isReadOnly: state.isPast, openDetail: openDetail)
+                }
+                .frame(width: leftWidth, alignment: .top)
 
-    private func placeholderSection(_ title: String) -> some View {
-        VStack(alignment: .leading) {
-            Text(title)
-                .font(.headline)
-                .padding()
-            Spacer()
+                ScheduleSection(day: day, isReadOnly: state.isPast, openDetail: openDetail)
+                    .frame(width: rightWidth, alignment: .top)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 1900)
+        .id(day.persistentModelID)
+        .sheet(item: $detailFocus) { focus in
+            TaskDetailSheet(focus: focus, dismiss: { detailFocus = nil })
+        }
     }
 }

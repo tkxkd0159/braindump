@@ -124,6 +124,49 @@ import SwiftData
 }
 
 @MainActor
+@Test func incompleteCountCountsItemsWithNoCompletedEntry() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let scheduleService = ScheduleService(context: context)
+    let day = dayService.day(for: TestDate.at(2026, 5, 22))
+    _ = taskService.addBrainDumpItem(title: "Unscheduled", on: day)
+    let item = taskService.addBrainDumpItem(title: "Scheduled but open", on: day)
+    _ = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+
+    #expect(dayService.incompleteItemCount(on: day) == 2)
+}
+
+@MainActor
+@Test func incompleteCountIgnoresItemsWithAnyCompletedEntry() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let scheduleService = ScheduleService(context: context)
+    let day = dayService.day(for: TestDate.at(2026, 5, 22))
+    let done = taskService.addBrainDumpItem(title: "Done", on: day)
+    let open = taskService.addBrainDumpItem(title: "Open", on: day)
+    let entry = try scheduleService.schedule(done, on: day, startHour: 9, durationHours: 1)
+    scheduleService.setCompleted(entry, true)
+    _ = try scheduleService.schedule(open, on: day, startHour: 10, durationHours: 1)
+
+    #expect(dayService.incompleteItemCount(on: day) == 1)
+}
+
+@MainActor
+@Test func totalCountReturnsAllDayItems() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let day = dayService.day(for: TestDate.at(2026, 5, 22))
+    _ = taskService.addBrainDumpItem(title: "A", on: day)
+    _ = taskService.addBrainDumpItem(title: "B", on: day)
+    _ = taskService.addBrainDumpItem(title: "C", on: day)
+
+    #expect(dayService.totalItemCount(on: day) == 3)
+}
+
+@MainActor
 @Test func rolloverKeepsTop3EntryForCompletedItem() throws {
     let context = try InMemoryStore.makeContext()
     let dayService = DayService(context: context)

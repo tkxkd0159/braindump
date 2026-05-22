@@ -1,0 +1,24 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:todoosx}",
+      "name": "Debug todoosx",
+      "target": "todoosx",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug todoosx"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:todoosx}",
+      "name": "Release todoosx",
+      "target": "todoosx",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release todoosx"
+    }
+  ]
+}

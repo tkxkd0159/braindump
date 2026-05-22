@@ -7,6 +7,7 @@ struct TodoosxApp: App {
     let container: ModelContainer
 
     init() {
+        Fonts.registerIfNeeded()
         do {
             container = try ModelContainer(
                 for: Day.self, TaskItem.self, ScheduleEntry.self
@@ -19,8 +20,8 @@ struct TodoosxApp: App {
     var body: some Scene {
         WindowGroup("todoosx") {
             AppShell()
-                .frame(minWidth: 920, minHeight: 720)
-                .tint(Color(red: 0x1c / 255, green: 0x32 / 255, blue: 0x55 / 255))
+                .frame(minWidth: 1100, minHeight: 760)
+                .tint(Theme.Palette.primary)
         }
         .modelContainer(container)
         .windowStyle(.titleBar)

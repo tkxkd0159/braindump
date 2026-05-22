@@ -22,6 +22,16 @@ public final class DayService {
         return day
     }
 
+    public func incompleteItemCount(on day: Day) -> Int {
+        day.items.filter { item in
+            !day.schedule.contains { $0.item?.id == item.id && $0.isCompleted }
+        }.count
+    }
+
+    public func totalItemCount(on day: Day) -> Int {
+        day.items.count
+    }
+
     public func rollover(now: Date) {
         let today = now.startOfLocalDay()
         let todayDay = day(for: today)
@@ -33,7 +43,7 @@ public final class DayService {
 
         for past in pastDays {
             let itemsSnapshot = past.items
-            for item in itemsSnapshot {
+            for item in itemsSnapshot where !item.isBacklog {
                 let completedHere = past.schedule.contains {
                     $0.item?.id == item.id && $0.isCompleted
                 }

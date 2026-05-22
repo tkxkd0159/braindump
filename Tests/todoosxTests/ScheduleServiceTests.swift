@@ -59,6 +59,15 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
 }
 
 @MainActor
+@Test func canScheduleAtFiveAM() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "Early bird", on: day)
+
+    let entry = try scheduleService.schedule(item, on: day, startHour: 5, durationHours: 1)
+    #expect(entry.startHour == 5)
+}
+
+@MainActor
 @Test func scheduleAllowsBoundaryEnd() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "Last block", on: day)
@@ -131,4 +140,92 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
     #expect(entry.isCompleted == true)
     scheduleService.setCompleted(entry, false)
     #expect(entry.isCompleted == false)
+}
+
+@MainActor
+@Test func newScheduleEntryDefaultsToColorIndexZero() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+    #expect(entry.colorIndex == 0)
+}
+
+@MainActor
+@Test func scheduleAcceptsColorIndexArgument() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1, colorIndex: 3)
+    #expect(entry.colorIndex == 3)
+}
+
+@MainActor
+@Test func setColorIndexPersists() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+
+    scheduleService.setColorIndex(entry, 5)
+    #expect(entry.colorIndex == 5)
+}
+
+@MainActor
+@Test func rescheduleMovesBlock() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+
+    try scheduleService.reschedule(entry, startHour: 14, durationHours: 2)
+    #expect(entry.startHour == 14)
+    #expect(entry.durationHours == 2)
+}
+
+@MainActor
+@Test func rescheduleRejectsOverlapWithOtherEntry() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let a = taskService.addBrainDumpItem(title: "A", on: day)
+    let b = taskService.addBrainDumpItem(title: "B", on: day)
+    let entryA = try scheduleService.schedule(a, on: day, startHour: 9, durationHours: 1)
+    _ = try scheduleService.schedule(b, on: day, startHour: 11, durationHours: 1)
+
+    #expect(throws: TodoError.scheduleConflict) {
+        try scheduleService.reschedule(entryA, startHour: 11, durationHours: 1)
+    }
+}
+
+@MainActor
+@Test func rescheduleAllowsKeepingOwnRange() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 2)
+
+    try scheduleService.reschedule(entry, startHour: 9, durationHours: 2)
+    #expect(entry.startHour == 9)
+}
+
+@MainActor
+@Test func rescheduleRejectsOutOfRange() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+
+    #expect(throws: TodoError.scheduleOutOfRange) {
+        try scheduleService.reschedule(entry, startHour: 4, durationHours: 1)
+    }
+}
+
+@MainActor
+@Test func setCompletedStampsAndClearsCompletedAt() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+    #expect(entry.completedAt == nil)
+
+    let before = Date()
+    scheduleService.setCompleted(entry, true)
+    let after = Date()
+    #expect(entry.completedAt != nil)
+    #expect(entry.completedAt! >= before && entry.completedAt! <= after)
+
+    scheduleService.setCompleted(entry, false)
+    #expect(entry.completedAt == nil)
 }

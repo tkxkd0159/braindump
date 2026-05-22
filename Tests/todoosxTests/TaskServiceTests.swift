@@ -127,6 +127,127 @@ import SwiftData
 }
 
 @MainActor
+@Test func allTagsReturnsDistinctSortedTags() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+    let a = taskService.addBrainDumpItem(title: "A", on: today)
+    let b = taskService.addBrainDumpItem(title: "B", on: today)
+    taskService.updateTags(a, tags: ["writing", "deep"])
+    taskService.updateTags(b, tags: ["deep", "research"])
+
+    #expect(taskService.allTags() == ["deep", "research", "writing"])
+}
+
+@MainActor
+@Test func searchByKeywordMatchesTitleAndNotes() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+    let manuscript = taskService.addBrainDumpItem(title: "Manuscript review", on: today)
+    let email = taskService.addBrainDumpItem(title: "Email", on: today)
+    taskService.updateNotes(email, notes: "Reply about the manuscript revisions")
+    _ = taskService.addBrainDumpItem(title: "Unrelated task", on: today)
+
+    let results = taskService.searchTasks(keyword: "manuscript", tag: nil, completedRange: nil)
+    let ids = Set(results.map(\.id))
+    #expect(ids == Set([manuscript.id, email.id]))
+}
+
+@MainActor
+@Test func searchByTagReturnsOnlyTaggedItems() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+    let a = taskService.addBrainDumpItem(title: "A", on: today)
+    let b = taskService.addBrainDumpItem(title: "B", on: today)
+    taskService.updateTags(a, tags: ["writing"])
+    taskService.updateTags(b, tags: ["research"])
+
+    let results = taskService.searchTasks(keyword: nil, tag: "writing", completedRange: nil)
+    #expect(results.map(\.id) == [a.id])
+}
+
+@MainActor
+@Test func searchCompletedRangeReturnsItemsWithEntryInRange() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let scheduleService = ScheduleService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+    let done = taskService.addBrainDumpItem(title: "Done", on: today)
+    let entry = try scheduleService.schedule(done, on: today, startHour: 9, durationHours: 1)
+    scheduleService.setCompleted(entry, true)
+
+    let lower = TestDate.at(2026, 5, 22, hour: 0)
+    let upper = TestDate.at(2026, 5, 22, hour: 23, minute: 59)
+    let results = taskService.searchTasks(keyword: nil, tag: nil, completedRange: lower...upper)
+    #expect(results.map(\.id) == [done.id])
+}
+
+@MainActor
+@Test func searchCompletedRangeIgnoresUncompletedItems() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let scheduleService = ScheduleService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+    let open = taskService.addBrainDumpItem(title: "Open", on: today)
+    _ = try scheduleService.schedule(open, on: today, startHour: 9, durationHours: 1)
+
+    let lower = TestDate.at(2026, 5, 22, hour: 0)
+    let upper = TestDate.at(2026, 5, 22, hour: 23, minute: 59)
+    let results = taskService.searchTasks(keyword: nil, tag: nil, completedRange: lower...upper)
+    #expect(results.isEmpty)
+}
+
+@MainActor
+@Test func searchExcludesBacklogItems() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+    let active = taskService.addBrainDumpItem(title: "Active", on: today)
+    let backlog = TaskItem(title: "Backlog", isBacklog: true)
+    context.insert(backlog)
+    try context.save()
+
+    let results = taskService.searchTasks(keyword: nil, tag: nil, completedRange: nil)
+    let ids = Set(results.map(\.id))
+    #expect(ids == Set([active.id]))
+    #expect(!ids.contains(backlog.id))
+}
+
+@MainActor
+@Test func updateNotesPersists() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+    let item = taskService.addBrainDumpItem(title: "Spec", on: today)
+    #expect(item.notes == "")
+
+    taskService.updateNotes(item, notes: "Outline section headings before deep dive.")
+    #expect(item.notes == "Outline section headings before deep dive.")
+}
+
+@MainActor
+@Test func updateTagsPersistsAndDeduplicates() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+    let item = taskService.addBrainDumpItem(title: "Spec", on: today)
+    #expect(item.tags == [])
+
+    taskService.updateTags(item, tags: ["writing", "deep-work", "writing"])
+    #expect(item.tags == ["writing", "deep-work"])
+}
+
+@MainActor
 @Test func deleteRemovesFromTop3() throws {
     let context = try InMemoryStore.makeContext()
     let dayService = DayService(context: context)

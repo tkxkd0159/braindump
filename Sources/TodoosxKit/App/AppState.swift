@@ -2,6 +2,12 @@ import Foundation
 import SwiftData
 import Observation
 
+public enum SidebarDestination: String, CaseIterable, Hashable {
+    case today
+    case tasks
+    case backlog
+}
+
 @MainActor
 @Observable
 public final class AppState {
@@ -11,14 +17,21 @@ public final class AppState {
 
     public private(set) var todayDate: Date
     public var selectedDate: Date
+    public var selectedDestination: SidebarDestination = .today
+    public let currentWiseSaying: WiseSaying
 
-    public init(context: ModelContext, now: @escaping () -> Date = { Date() }) {
+    public init(
+        context: ModelContext,
+        now: @escaping () -> Date = { Date() },
+        wiseSaying: WiseSaying = WiseSayings.random()
+    ) {
         self.context = context
         self.now = now
         self.dayService = DayService(context: context)
         let today = now().startOfLocalDay()
         self.todayDate = today
         self.selectedDate = today
+        self.currentWiseSaying = wiseSaying
         self.dayService.rollover(now: today)
     }
 
