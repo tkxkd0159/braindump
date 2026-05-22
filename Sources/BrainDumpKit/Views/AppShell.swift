@@ -11,10 +11,15 @@ public struct AppShell: View {
         Group {
             if let state {
                 HStack(spacing: 0) {
-                    Sidebar(state: state)
+                    if state.isSidebarVisible {
+                        Sidebar(state: state)
+                            .transition(.move(edge: .leading))
+                    }
                     MainCanvas(state: state)
                 }
+                .animation(.easeInOut(duration: 0.18), value: state.isSidebarVisible)
                 .background(Theme.Palette.surface)
+                .frame(minWidth: minWidth(for: state), minHeight: 760)
             } else {
                 ProgressView()
                     .controlSize(.large)
@@ -26,10 +31,18 @@ public struct AppShell: View {
             if state == nil { state = AppState(context: context) }
         }
     }
+
+    private func minWidth(for state: AppState) -> CGFloat {
+        // Left column (Top3 + BrainDump) >= 360, schedule >= 480, gutter 24,
+        // canvas horizontal padding 64 * 2. Plus sidebar when visible.
+        let canvasMin: CGFloat = 64 + 360 + 24 + 480 + 64
+        return canvasMin + (state.isSidebarVisible ? 256 : 0)
+    }
 }
 
 private struct Sidebar: View {
     @Bindable var state: AppState
+    @State private var showSettings: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -60,7 +73,22 @@ private struct Sidebar: View {
                 .frame(height: 1)
                 .padding(.horizontal, 16)
             VStack(alignment: .leading, spacing: 6) {
-                NavItem(icon: "gearshape", label: "Settings", destination: nil, state: state)
+                Button(action: { showSettings = true }) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 16, weight: .regular))
+                            .frame(width: 22)
+                        Text("Settings")
+                            .font(Theme.Font.labelMd)
+                            .tracking(0.7)
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 16)
             .padding(.top, 18)
@@ -73,6 +101,9 @@ private struct Sidebar: View {
             Rectangle()
                 .fill(Theme.Palette.outlineVariant)
                 .frame(width: 1)
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsSheet(state: state, dismiss: { showSettings = false })
         }
     }
 }
@@ -133,11 +164,11 @@ private struct MainCanvas: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
+                topBar
                 switch state.selectedDestination {
                 case .today:
                     DateHeader(state: state)
                         .padding(.horizontal, 64)
-                        .padding(.top, 36)
                         .padding(.bottom, 48)
                     DayView(state: state)
                         .padding(.horizontal, 64)
@@ -145,12 +176,12 @@ private struct MainCanvas: View {
                 case .tasks:
                     TasksScreen()
                         .padding(.horizontal, 64)
-                        .padding(.top, 36)
+                        .padding(.top, 24)
                         .padding(.bottom, 48)
                 case .backlog:
                     BacklogScreen(state: state)
                         .padding(.horizontal, 64)
-                        .padding(.top, 36)
+                        .padding(.top, 24)
                         .padding(.bottom, 48)
                 }
             }
@@ -158,6 +189,25 @@ private struct MainCanvas: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var topBar: some View {
+        HStack(spacing: 0) {
+            Button(action: { state.toggleSidebar() }) {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                    .frame(width: 32, height: 32)
+                    .background(Theme.Palette.surfaceContainerLow.opacity(0.0001))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(state.isSidebarVisible ? "Hide Sidebar" : "Show Sidebar")
+            .keyboardShortcut("s", modifiers: [.command, .control])
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 12)
     }
 }
 
@@ -241,4 +291,3 @@ private struct CalendarAvatarBlock: View {
         }
     }
 }
-

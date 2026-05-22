@@ -5,23 +5,30 @@ public struct ScheduleSection: View {
     @Environment(\.modelContext) private var context
     let day: Day
     let isReadOnly: Bool
+    let dayStartHour: Int
+    let dayEndHour: Int
     let openDetail: ((TaskItem, ScheduleEntry?) -> Void)?
 
     public init(
         day: Day,
         isReadOnly: Bool,
+        dayStartHour: Int = 5,
+        dayEndHour: Int = 22,
         openDetail: ((TaskItem, ScheduleEntry?) -> Void)? = nil
     ) {
         self.day = day
         self.isReadOnly = isReadOnly
+        self.dayStartHour = dayStartHour
+        self.dayEndHour = dayEndHour
         self.openDetail = openDetail
     }
 
-    private static let startHour = 5
-    private static let endHour = 22
     private static let slotHeight: CGFloat = 50
     private static var hourHeight: CGFloat { slotHeight * 2 }
     private static let timeLabelWidth: CGFloat = 80
+
+    private var dayStartMinute: Int { dayStartHour * 60 }
+    private var dayEndMinute: Int { dayEndHour * 60 }
 
     @State private var pending: PendingDrop?
     @State private var errorText: String?
@@ -31,7 +38,7 @@ public struct ScheduleSection: View {
 
     private struct PendingDrop: Identifiable {
         let id = UUID()
-        let hour: Int
+        let startMinute: Int
         let itemID: UUID
     }
 
@@ -47,11 +54,11 @@ public struct ScheduleSection: View {
         )
         .shadow(color: Color(red: 0, green: 31/255, blue: 63/255, opacity: 0.03), radius: 30, x: 0, y: 10)
         .sheet(item: $pending) { drop in
-            DurationPromptSheet(
-                startHour: drop.hour,
-                maxDuration: 24 - drop.hour,
-                onConfirm: { duration, colorIndex in
-                    confirmSchedule(itemID: drop.itemID, hour: drop.hour, duration: duration, colorIndex: colorIndex)
+            TimeBlockSheet(
+                initialStartMinute: drop.startMinute,
+                initialDurationMinutes: 60,
+                onConfirm: { startMinute, durationMinutes, colorIndex in
+                    confirmSchedule(itemID: drop.itemID, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex)
                 },
                 onCancel: { pending = nil }
             )
@@ -72,22 +79,6 @@ public struct ScheduleSection: View {
                     .padding(.leading, 12)
             }
             Spacer()
-            HStack(spacing: 4) {
-                Button(action: {}) {
-                    Image(systemName: "square.and.arrow.down")
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.plain)
-                Button(action: {}) {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.plain)
-            }
         }
         .padding(.bottom, 32)
     }
@@ -103,8 +94,11 @@ public struct ScheduleSection: View {
                 }
             }
             ForEach(day.schedule, id: \.id) { entry in
-                if entry.startHour >= Self.startHour && entry.startHour <= Self.endHour {
+                if entry.endMinute > dayStartMinute && entry.startMinute < dayEndMinute {
                     let entryRef = entry
+                    let visibleStart = max(entry.startMinute, dayStartMinute)
+                    let visibleEnd = min(entry.endMinute, dayEndMinute)
+                    let visibleMinutes = visibleEnd - visibleStart
                     ScheduleBlockView(
                         entry: entry,
                         isReadOnly: isReadOnly,
@@ -116,10 +110,10 @@ public struct ScheduleSection: View {
                             }
                         }
                     )
-                    .frame(height: CGFloat(entry.durationHours) * Self.hourHeight)
+                    .frame(height: CGFloat(visibleMinutes) / 60.0 * Self.hourHeight)
                     .padding(.leading, Self.timeLabelWidth)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .offset(y: CGFloat(entry.startHour - Self.startHour) * Self.hourHeight + 1)
+                    .offset(y: CGFloat(visibleStart - dayStartMinute) / 60.0 * Self.hourHeight + 1)
                 }
             }
         }
@@ -132,18 +126,18 @@ public struct ScheduleSection: View {
 
     private func rows() -> [Row] {
         var result: [Row] = []
-        for hour in Self.startHour...Self.endHour {
+        for hour in dayStartHour...dayEndHour {
             result.append(Row(hour: hour, isTopOfHour: true))
-            if hour != Self.endHour {
+            if hour != dayEndHour {
                 result.append(Row(hour: hour, isTopOfHour: false))
             }
         }
         return result
     }
 
-    private func isOccupied(hour: Int) -> Bool {
+    private func isOccupied(minute: Int) -> Bool {
         day.schedule.contains { entry in
-            hour >= entry.startHour && hour < entry.startHour + entry.durationHours
+            minute >= entry.startMinute && minute < entry.endMinute
         }
     }
 
@@ -190,7 +184,8 @@ public struct ScheduleSection: View {
 
     @ViewBuilder
     private func slotBody(hour: Int, isTopOfHour: Bool) -> some View {
-        let occupied = isOccupied(hour: hour)
+        let slotStartMinute = hour * 60 + (isTopOfHour ? 0 : 30)
+        let occupied = isOccupied(minute: slotStartMinute)
         if occupied {
             Rectangle()
                 .fill(Theme.Palette.surfaceContainerLow.opacity(0.5))
@@ -199,18 +194,18 @@ public struct ScheduleSection: View {
                 hour: hour,
                 isTopOfHour: isTopOfHour,
                 isReadOnly: isReadOnly,
-                onSubmit: { title in submitInline(title: title, hour: hour) },
-                onDrop: { itemID in pending = PendingDrop(hour: hour, itemID: itemID) }
+                onSubmit: { title in submitInline(title: title, startMinute: slotStartMinute) },
+                onDrop: { itemID in pending = PendingDrop(startMinute: slotStartMinute, itemID: itemID) }
             )
         }
     }
 
-    private func submitInline(title: String, hour: Int) {
+    private func submitInline(title: String, startMinute: Int) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isReadOnly else { return }
         let item = taskService.addBrainDumpItem(title: trimmed, on: day)
         do {
-            _ = try scheduleService.schedule(item, on: day, startHour: hour, durationHours: 1)
+            _ = try scheduleService.schedule(item, on: day, startMinute: startMinute, durationMinutes: 60)
             errorText = nil
         } catch TodoError.scheduleConflict {
             errorText = "Conflicts with another block"
@@ -221,14 +216,14 @@ public struct ScheduleSection: View {
         }
     }
 
-    private func confirmSchedule(itemID: UUID, hour: Int, duration: Int, colorIndex: Int) {
+    private func confirmSchedule(itemID: UUID, startMinute: Int, durationMinutes: Int, colorIndex: Int) {
         defer { pending = nil }
         guard let item = day.items.first(where: { $0.id == itemID }) else {
             errorText = "Item not on this day"
             return
         }
         do {
-            _ = try scheduleService.schedule(item, on: day, startHour: hour, durationHours: duration, colorIndex: colorIndex)
+            _ = try scheduleService.schedule(item, on: day, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex)
             errorText = nil
         } catch TodoError.scheduleConflict {
             errorText = "Conflicts with another block"

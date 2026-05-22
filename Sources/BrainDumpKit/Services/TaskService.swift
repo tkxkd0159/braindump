@@ -10,12 +10,25 @@ public final class TaskService {
     }
 
     @discardableResult
-    public func addBrainDumpItem(title: String, on day: Day) -> TaskItem {
-        let item = TaskItem(title: title)
+    public func addBrainDumpItem(
+        title: String,
+        notes: String = "",
+        tags: [String] = [],
+        on day: Day
+    ) -> TaskItem {
+        let item = TaskItem(title: title, notes: notes, tags: Self.normalize(tags: tags))
         item.day = day
         context.insert(item)
         try? context.save()
         return item
+    }
+
+    private static func normalize(tags: [String]) -> [String] {
+        var seen = Set<String>()
+        return tags
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .filter { !$0.isEmpty }
+            .filter { seen.insert($0).inserted }
     }
 
     public func rename(_ item: TaskItem, to title: String) {
@@ -29,12 +42,7 @@ public final class TaskService {
     }
 
     public func updateTags(_ item: TaskItem, tags: [String]) {
-        var seen = Set<String>()
-        let cleaned = tags
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-            .filter { !$0.isEmpty }
-            .filter { seen.insert($0).inserted }
-        item.tags = cleaned
+        item.tags = Self.normalize(tags: tags)
         try? context.save()
     }
 

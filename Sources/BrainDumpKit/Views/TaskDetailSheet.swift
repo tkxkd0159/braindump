@@ -21,8 +21,8 @@ public struct TaskDetailSheet: View {
     @State private var notes: String
     @State private var tags: [String]
     @State private var newTagDraft: String = ""
-    @State private var startHour: Int
-    @State private var durationHours: Int
+    @State private var startDate: Date
+    @State private var endDate: Date
     @State private var colorIndex: Int
     @State private var errorText: String?
 
@@ -35,13 +35,13 @@ public struct TaskDetailSheet: View {
         _notes = State(initialValue: focus.item.notes)
         _tags = State(initialValue: focus.item.tags)
         if let entry = focus.entry {
-            _startHour = State(initialValue: entry.startHour)
-            _durationHours = State(initialValue: entry.durationHours)
+            _startDate = State(initialValue: Self.referenceDate(forMinute: entry.startMinute))
+            _endDate = State(initialValue: Self.referenceDate(forMinute: entry.endMinute))
             _colorIndex = State(initialValue: entry.colorIndex)
             hasEntry = true
         } else {
-            _startHour = State(initialValue: 9)
-            _durationHours = State(initialValue: 1)
+            _startDate = State(initialValue: Self.referenceDate(forMinute: 9 * 60))
+            _endDate = State(initialValue: Self.referenceDate(forMinute: 10 * 60))
             _colorIndex = State(initialValue: 0)
             hasEntry = false
         }
@@ -55,7 +55,7 @@ public struct TaskDetailSheet: View {
             tagsField
             if hasEntry {
                 scheduleEditor
-                colorPicker
+                ColorSwatchRow(selected: $colorIndex)
             }
             if let errorText {
                 Text(errorText)
@@ -165,21 +165,29 @@ public struct TaskDetailSheet: View {
                 .font(Theme.Font.tinyLabel)
                 .tracking(1.2)
                 .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            HStack(spacing: 16) {
-                Stepper(value: $startHour, in: 5...22) {
-                    Text("Start: \(formattedHour(startHour))")
-                        .font(Theme.Font.bodyMd)
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Starts")
+                        .font(Theme.Font.tinyLabel)
+                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                    DatePicker("", selection: $startDate, displayedComponents: .hourAndMinute)
+                        .labelsHidden()
+                        .datePickerStyle(.field)
                 }
-                Stepper(value: $durationHours, in: 1...max(1, 24 - startHour)) {
-                    Text("Duration: \(durationHours)h")
-                        .font(Theme.Font.bodyMd)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                    .padding(.top, 16)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Ends")
+                        .font(Theme.Font.tinyLabel)
+                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                    DatePicker("", selection: $endDate, displayedComponents: .hourAndMinute)
+                        .labelsHidden()
+                        .datePickerStyle(.field)
                 }
             }
         }
-    }
-
-    private var colorPicker: some View {
-        ColorSwatchRow(selected: $colorIndex)
     }
 
     private var footer: some View {
@@ -226,10 +234,17 @@ public struct TaskDetailSheet: View {
             taskService.updateTags(focus.item, tags: tags)
         }
         if let entry = focus.entry {
-            let timeChanged = entry.startHour != startHour || entry.durationHours != durationHours
+            let start = Self.snapMinute(date: startDate)
+            let end = Self.snapMinute(date: endDate)
+            guard end > start else {
+                errorText = "End must be after start"
+                return
+            }
+            let duration = end - start
+            let timeChanged = entry.startMinute != start || entry.durationMinutes != duration
             if timeChanged {
                 do {
-                    try scheduleService.reschedule(entry, startHour: startHour, durationHours: durationHours)
+                    try scheduleService.reschedule(entry, startMinute: start, durationMinutes: duration)
                 } catch TodoError.scheduleConflict {
                     errorText = "Conflicts with another block"
                     return
@@ -248,10 +263,18 @@ public struct TaskDetailSheet: View {
         dismiss()
     }
 
-    private func formattedHour(_ hour: Int) -> String {
-        let h = hour % 12 == 0 ? 12 : hour % 12
-        let suffix = hour < 12 ? "AM" : "PM"
-        return "\(h):00 \(suffix)"
+    private static func snapMinute(date: Date) -> Int {
+        let cal = Calendar(identifier: .gregorian)
+        let comps = cal.dateComponents([.hour, .minute], from: date)
+        let raw = (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
+        let snapped = Int((Double(raw) / 15.0).rounded()) * 15
+        return min(24 * 60, max(0, snapped))
+    }
+
+    private static func referenceDate(forMinute minute: Int) -> Date {
+        let cal = Calendar(identifier: .gregorian)
+        let base = cal.startOfDay(for: Date(timeIntervalSinceReferenceDate: 0))
+        return cal.date(byAdding: .minute, value: min(24 * 60 - 1, max(0, minute)), to: base) ?? base
     }
 }
 

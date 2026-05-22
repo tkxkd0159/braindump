@@ -46,3 +46,57 @@ import SwiftData
     state.goToPreviousDay()
     #expect(!state.isToday)
 }
+
+@MainActor
+@Test func defaultDayBoundsAre5To22() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) }, defaults: defaults)
+    #expect(state.dayStartHour == 5)
+    #expect(state.dayEndHour == 22)
+    #expect(state.dayStartMinute == 300)
+    #expect(state.dayEndMinute == 1320)
+}
+
+@MainActor
+@Test func setDayBoundsRejectsTooShortSpan() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) }, defaults: defaults)
+    #expect(state.setDayBounds(startHour: 8, endHour: 10) == false)
+    #expect(state.dayStartHour == 5)
+    #expect(state.dayEndHour == 22)
+}
+
+@MainActor
+@Test func setDayBoundsAcceptsValidSpan() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) }, defaults: defaults)
+    #expect(state.setDayBounds(startHour: 7, endHour: 19))
+    #expect(state.dayStartHour == 7)
+    #expect(state.dayEndHour == 19)
+}
+
+@MainActor
+@Test func dayBoundsPersistAcrossInits() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let first = AppState(context: context, now: { TestDate.at(2026, 5, 22) }, defaults: defaults)
+    _ = first.setDayBounds(startHour: 6, endHour: 23)
+
+    let second = AppState(context: context, now: { TestDate.at(2026, 5, 22) }, defaults: defaults)
+    #expect(second.dayStartHour == 6)
+    #expect(second.dayEndHour == 23)
+}
+
+@MainActor
+@Test func sidebarToggleFlipsVisibility() throws {
+    let context = try InMemoryStore.makeContext()
+    let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) })
+    #expect(state.isSidebarVisible)
+    state.toggleSidebar()
+    #expect(!state.isSidebarVisible)
+    state.toggleSidebar()
+    #expect(state.isSidebarVisible)
+}

@@ -19,8 +19,8 @@ public struct DayView: View {
         GeometryReader { geo in
             let gutter: CGFloat = 24
             let available = max(0, geo.size.width - gutter)
-            let leftWidth = max(340, available * 5.0 / 12.0)
-            let rightWidth = max(440, available - leftWidth)
+            let leftWidth = max(360, available * 5.0 / 12.0)
+            let rightWidth = max(480, available - leftWidth)
             HStack(alignment: .top, spacing: gutter) {
                 VStack(alignment: .leading, spacing: 48) {
                     Top3Section(day: day, isReadOnly: state.isPast, openDetail: openDetail)
@@ -28,14 +28,27 @@ public struct DayView: View {
                 }
                 .frame(width: leftWidth, alignment: .top)
 
-                ScheduleSection(day: day, isReadOnly: state.isPast, openDetail: openDetail)
-                    .frame(width: rightWidth, alignment: .top)
+                ScheduleSection(
+                    day: day,
+                    isReadOnly: state.isPast,
+                    dayStartHour: state.dayStartHour,
+                    dayEndHour: state.dayEndHour,
+                    openDetail: openDetail
+                )
+                .frame(width: rightWidth, alignment: .top)
             }
         }
-        .frame(minHeight: 1900)
+        .frame(minHeight: scheduleHeight(state: state))
         .id(day.persistentModelID)
         .sheet(item: $detailFocus) { focus in
             TaskDetailSheet(focus: focus, dismiss: { detailFocus = nil })
         }
+    }
+
+    private func scheduleHeight(state: AppState) -> CGFloat {
+        // ScheduleSection grid uses 100 pt per hour plus header/padding (~140).
+        let hourHeight: CGFloat = 100
+        let hours = max(1, state.dayEndHour - state.dayStartHour) + 1
+        return CGFloat(hours) * hourHeight + 200
     }
 }

@@ -13,23 +13,23 @@ public final class ScheduleService {
     public func schedule(
         _ item: TaskItem,
         on day: Day,
-        startHour: Int,
-        durationHours: Int,
+        startMinute: Int,
+        durationMinutes: Int,
         colorIndex: Int = 0
     ) throws -> ScheduleEntry {
-        guard durationHours >= 1, startHour >= 5, startHour + durationHours <= 24 else {
+        guard durationMinutes >= 15, startMinute >= 0, startMinute + durationMinutes <= 24 * 60 else {
             throw TodoError.scheduleOutOfRange
         }
-        let newRange = startHour..<(startHour + durationHours)
+        let newRange = startMinute..<(startMinute + durationMinutes)
         for existing in day.schedule {
-            let existingRange = existing.startHour..<(existing.startHour + existing.durationHours)
+            let existingRange = existing.startMinute..<(existing.startMinute + existing.durationMinutes)
             if newRange.overlaps(existingRange) {
                 throw TodoError.scheduleConflict
             }
         }
         let entry = ScheduleEntry(
-            startHour: startHour,
-            durationHours: durationHours,
+            startMinute: startMinute,
+            durationMinutes: durationMinutes,
             colorIndex: colorIndex,
             item: item,
             day: day
@@ -41,23 +41,23 @@ public final class ScheduleService {
 
     public func reschedule(
         _ entry: ScheduleEntry,
-        startHour: Int,
-        durationHours: Int
+        startMinute: Int,
+        durationMinutes: Int
     ) throws {
-        guard durationHours >= 1, startHour >= 5, startHour + durationHours <= 24 else {
+        guard durationMinutes >= 15, startMinute >= 0, startMinute + durationMinutes <= 24 * 60 else {
             throw TodoError.scheduleOutOfRange
         }
-        let newRange = startHour..<(startHour + durationHours)
+        let newRange = startMinute..<(startMinute + durationMinutes)
         if let day = entry.day {
             for existing in day.schedule where existing.id != entry.id {
-                let existingRange = existing.startHour..<(existing.startHour + existing.durationHours)
+                let existingRange = existing.startMinute..<(existing.startMinute + existing.durationMinutes)
                 if newRange.overlaps(existingRange) {
                     throw TodoError.scheduleConflict
                 }
             }
         }
-        entry.startHour = startHour
-        entry.durationHours = durationHours
+        entry.startMinute = startMinute
+        entry.durationMinutes = durationMinutes
         try? context.save()
     }
 

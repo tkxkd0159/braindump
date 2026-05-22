@@ -179,7 +179,7 @@ import SwiftData
     let scheduleService = ScheduleService(context: context)
     let today = dayService.day(for: TestDate.at(2026, 5, 22))
     let done = taskService.addBrainDumpItem(title: "Done", on: today)
-    let entry = try scheduleService.schedule(done, on: today, startHour: 9, durationHours: 1)
+    let entry = try scheduleService.schedule(done, on: today, startMinute: 9 * 60, durationMinutes: 60)
     scheduleService.setCompleted(entry, true)
 
     let lower = TestDate.at(2026, 5, 22, hour: 0)
@@ -196,7 +196,7 @@ import SwiftData
     let scheduleService = ScheduleService(context: context)
     let today = dayService.day(for: TestDate.at(2026, 5, 22))
     let open = taskService.addBrainDumpItem(title: "Open", on: today)
-    _ = try scheduleService.schedule(open, on: today, startHour: 9, durationHours: 1)
+    _ = try scheduleService.schedule(open, on: today, startMinute: 9 * 60, durationMinutes: 60)
 
     let lower = TestDate.at(2026, 5, 22, hour: 0)
     let upper = TestDate.at(2026, 5, 22, hour: 23, minute: 59)
@@ -244,6 +244,25 @@ import SwiftData
     #expect(item.tags == [])
 
     taskService.updateTags(item, tags: ["writing", "deep-work", "writing"])
+    #expect(item.tags == ["writing", "deep-work"])
+}
+
+@MainActor
+@Test func addBrainDumpItemAcceptsNotesAndTags() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let item = taskService.addBrainDumpItem(
+        title: "Write spec",
+        notes: "Outline before drafting",
+        tags: ["Writing", "writing", "deep-work"],
+        on: today
+    )
+
+    #expect(item.title == "Write spec")
+    #expect(item.notes == "Outline before drafting")
     #expect(item.tags == ["writing", "deep-work"])
 }
 

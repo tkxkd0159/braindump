@@ -85,14 +85,6 @@ public struct ScheduleBlockView: View {
     }
 
     private var timeRange: String {
-        let start = entry.startHour
-        let end = entry.startHour + entry.durationHours
-        return "\(format(start)) — \(format(end))"
-    }
-
-    private func format(_ hour: Int) -> String {
-        let displayHour = hour == 24 ? 12 : (hour % 12 == 0 ? 12 : hour % 12)
-        let suffix = (hour >= 12 && hour < 24) ? "PM" : "AM"
-        return "\(displayHour):00 \(suffix)"
+        TimeFormat.range(startMinute: entry.startMinute, durationMinutes: entry.durationMinutes)
     }
 }

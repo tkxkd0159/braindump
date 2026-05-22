@@ -18,10 +18,10 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "Write spec", on: day)
 
-    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 60)
 
-    #expect(entry.startHour == 9)
-    #expect(entry.durationHours == 1)
+    #expect(entry.startMinute == 540)
+    #expect(entry.durationMinutes == 60)
     #expect(entry.item?.id == item.id)
     #expect(entry.day?.date == day.date)
     #expect(day.schedule.count == 1)
@@ -32,39 +32,51 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "Write spec", on: day)
 
-    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 3)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 180)
 
-    #expect(entry.durationHours == 3)
+    #expect(entry.durationMinutes == 180)
     #expect(day.schedule.count == 1)
 }
 
 @MainActor
-@Test func scheduleRejectsStartHourBefore5() throws {
+@Test func scheduleAcceptsFractionalStart() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "Quarter past", on: day)
+
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60 + 15, durationMinutes: 75)
+
+    #expect(entry.startMinute == 555)
+    #expect(entry.durationMinutes == 75)
+    #expect(entry.endMinute == 630)
+}
+
+@MainActor
+@Test func scheduleRejectsNegativeStart() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "Too early", on: day)
 
     #expect(throws: TodoError.scheduleOutOfRange) {
-        try scheduleService.schedule(item, on: day, startHour: 4, durationHours: 1)
+        try scheduleService.schedule(item, on: day, startMinute: -30, durationMinutes: 60)
     }
 }
 
 @MainActor
-@Test func scheduleRejectsEndAfter24() throws {
+@Test func scheduleRejectsEndAfterMidnight() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "Too late", on: day)
 
     #expect(throws: TodoError.scheduleOutOfRange) {
-        try scheduleService.schedule(item, on: day, startHour: 23, durationHours: 2)
+        try scheduleService.schedule(item, on: day, startMinute: 23 * 60, durationMinutes: 120)
     }
 }
 
 @MainActor
-@Test func canScheduleAtFiveAM() throws {
+@Test func scheduleAllowsZeroStartMinute() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
-    let item = taskService.addBrainDumpItem(title: "Early bird", on: day)
+    let item = taskService.addBrainDumpItem(title: "Midnight", on: day)
 
-    let entry = try scheduleService.schedule(item, on: day, startHour: 5, durationHours: 1)
-    #expect(entry.startHour == 5)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 0, durationMinutes: 60)
+    #expect(entry.startMinute == 0)
 }
 
 @MainActor
@@ -72,18 +84,18 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "Last block", on: day)
 
-    let entry = try scheduleService.schedule(item, on: day, startHour: 23, durationHours: 1)
-    #expect(entry.startHour == 23)
-    #expect(entry.durationHours == 1)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 23 * 60, durationMinutes: 60)
+    #expect(entry.startMinute == 1380)
+    #expect(entry.durationMinutes == 60)
 }
 
 @MainActor
-@Test func scheduleRejectsZeroDuration() throws {
+@Test func scheduleRejectsSubFifteenDuration() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
-    let item = taskService.addBrainDumpItem(title: "Zero", on: day)
+    let item = taskService.addBrainDumpItem(title: "Tiny", on: day)
 
     #expect(throws: TodoError.scheduleOutOfRange) {
-        try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 0)
+        try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 10)
     }
 }
 
@@ -92,16 +104,28 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let a = taskService.addBrainDumpItem(title: "A", on: day)
     let b = taskService.addBrainDumpItem(title: "B", on: day)
-    _ = try scheduleService.schedule(a, on: day, startHour: 9, durationHours: 3) // 9-12
+    _ = try scheduleService.schedule(a, on: day, startMinute: 9 * 60, durationMinutes: 180) // 9:00-12:00
 
     #expect(throws: TodoError.scheduleConflict) {
-        try scheduleService.schedule(b, on: day, startHour: 10, durationHours: 1)
+        try scheduleService.schedule(b, on: day, startMinute: 10 * 60, durationMinutes: 60)
     }
     #expect(throws: TodoError.scheduleConflict) {
-        try scheduleService.schedule(b, on: day, startHour: 11, durationHours: 2)
+        try scheduleService.schedule(b, on: day, startMinute: 11 * 60, durationMinutes: 120)
     }
     #expect(throws: TodoError.scheduleConflict) {
-        try scheduleService.schedule(b, on: day, startHour: 8, durationHours: 2)
+        try scheduleService.schedule(b, on: day, startMinute: 8 * 60, durationMinutes: 120)
+    }
+}
+
+@MainActor
+@Test func scheduleRejectsMinuteLevelOverlap() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let a = taskService.addBrainDumpItem(title: "A", on: day)
+    let b = taskService.addBrainDumpItem(title: "B", on: day)
+    _ = try scheduleService.schedule(a, on: day, startMinute: 9 * 60 + 15, durationMinutes: 75) // 9:15-10:30
+
+    #expect(throws: TodoError.scheduleConflict) {
+        try scheduleService.schedule(b, on: day, startMinute: 10 * 60 + 15, durationMinutes: 60) // 10:15-11:15
     }
 }
 
@@ -110,8 +134,19 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let a = taskService.addBrainDumpItem(title: "A", on: day)
     let b = taskService.addBrainDumpItem(title: "B", on: day)
-    _ = try scheduleService.schedule(a, on: day, startHour: 9, durationHours: 1)  // [9,10)
-    _ = try scheduleService.schedule(b, on: day, startHour: 10, durationHours: 1) // [10,11)
+    _ = try scheduleService.schedule(a, on: day, startMinute: 9 * 60, durationMinutes: 60)
+    _ = try scheduleService.schedule(b, on: day, startMinute: 10 * 60, durationMinutes: 60)
+
+    #expect(day.schedule.count == 2)
+}
+
+@MainActor
+@Test func scheduleAllowsAdjacentSubHourBlocks() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let a = taskService.addBrainDumpItem(title: "A", on: day)
+    let b = taskService.addBrainDumpItem(title: "B", on: day)
+    _ = try scheduleService.schedule(a, on: day, startMinute: 9 * 60, durationMinutes: 75)  // 9:00-10:15
+    _ = try scheduleService.schedule(b, on: day, startMinute: 10 * 60 + 15, durationMinutes: 45) // 10:15-11:00
 
     #expect(day.schedule.count == 2)
 }
@@ -120,7 +155,7 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
 @Test func unscheduleDeletesEntryKeepsItem() throws {
     let (context, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
-    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 60)
 
     scheduleService.unschedule(entry)
 
@@ -133,7 +168,7 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
 @Test func setCompletedTogglesFlag() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
-    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 60)
     #expect(entry.isCompleted == false)
 
     scheduleService.setCompleted(entry, true)
@@ -146,7 +181,7 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
 @Test func newScheduleEntryDefaultsToColorIndexZero() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
-    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 60)
     #expect(entry.colorIndex == 0)
 }
 
@@ -154,7 +189,7 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
 @Test func scheduleAcceptsColorIndexArgument() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
-    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1, colorIndex: 3)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 60, colorIndex: 3)
     #expect(entry.colorIndex == 3)
 }
 
@@ -162,7 +197,7 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
 @Test func setColorIndexPersists() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
-    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 60)
 
     scheduleService.setColorIndex(entry, 5)
     #expect(entry.colorIndex == 5)
@@ -172,11 +207,11 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
 @Test func rescheduleMovesBlock() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
-    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 60)
 
-    try scheduleService.reschedule(entry, startHour: 14, durationHours: 2)
-    #expect(entry.startHour == 14)
-    #expect(entry.durationHours == 2)
+    try scheduleService.reschedule(entry, startMinute: 14 * 60 + 30, durationMinutes: 90)
+    #expect(entry.startMinute == 14 * 60 + 30)
+    #expect(entry.durationMinutes == 90)
 }
 
 @MainActor
@@ -184,11 +219,11 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let a = taskService.addBrainDumpItem(title: "A", on: day)
     let b = taskService.addBrainDumpItem(title: "B", on: day)
-    let entryA = try scheduleService.schedule(a, on: day, startHour: 9, durationHours: 1)
-    _ = try scheduleService.schedule(b, on: day, startHour: 11, durationHours: 1)
+    let entryA = try scheduleService.schedule(a, on: day, startMinute: 9 * 60, durationMinutes: 60)
+    _ = try scheduleService.schedule(b, on: day, startMinute: 11 * 60, durationMinutes: 60)
 
     #expect(throws: TodoError.scheduleConflict) {
-        try scheduleService.reschedule(entryA, startHour: 11, durationHours: 1)
+        try scheduleService.reschedule(entryA, startMinute: 11 * 60, durationMinutes: 60)
     }
 }
 
@@ -196,20 +231,20 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
 @Test func rescheduleAllowsKeepingOwnRange() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
-    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 2)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 120)
 
-    try scheduleService.reschedule(entry, startHour: 9, durationHours: 2)
-    #expect(entry.startHour == 9)
+    try scheduleService.reschedule(entry, startMinute: 9 * 60, durationMinutes: 120)
+    #expect(entry.startMinute == 9 * 60)
 }
 
 @MainActor
 @Test func rescheduleRejectsOutOfRange() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
-    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 60)
 
     #expect(throws: TodoError.scheduleOutOfRange) {
-        try scheduleService.reschedule(entry, startHour: 4, durationHours: 1)
+        try scheduleService.reschedule(entry, startMinute: -30, durationMinutes: 60)
     }
 }
 
@@ -217,7 +252,7 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
 @Test func setCompletedStampsAndClearsCompletedAt() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
-    let entry = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 60)
     #expect(entry.completedAt == nil)
 
     let before = Date()

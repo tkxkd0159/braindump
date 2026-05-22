@@ -60,7 +60,7 @@ import SwiftData
     let scheduleService = ScheduleService(context: context)
     let yesterday = dayService.day(for: TestDate.at(2026, 5, 21))
     let done = taskService.addBrainDumpItem(title: "Done", on: yesterday)
-    let entry = try scheduleService.schedule(done, on: yesterday, startHour: 9, durationHours: 1)
+    let entry = try scheduleService.schedule(done, on: yesterday, startMinute: 9 * 60, durationMinutes: 60)
     scheduleService.setCompleted(entry, true)
 
     dayService.rollover(now: TestDate.at(2026, 5, 22))
@@ -132,7 +132,7 @@ import SwiftData
     let day = dayService.day(for: TestDate.at(2026, 5, 22))
     _ = taskService.addBrainDumpItem(title: "Unscheduled", on: day)
     let item = taskService.addBrainDumpItem(title: "Scheduled but open", on: day)
-    _ = try scheduleService.schedule(item, on: day, startHour: 9, durationHours: 1)
+    _ = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 60)
 
     #expect(dayService.incompleteItemCount(on: day) == 2)
 }
@@ -146,9 +146,9 @@ import SwiftData
     let day = dayService.day(for: TestDate.at(2026, 5, 22))
     let done = taskService.addBrainDumpItem(title: "Done", on: day)
     let open = taskService.addBrainDumpItem(title: "Open", on: day)
-    let entry = try scheduleService.schedule(done, on: day, startHour: 9, durationHours: 1)
+    let entry = try scheduleService.schedule(done, on: day, startMinute: 9 * 60, durationMinutes: 60)
     scheduleService.setCompleted(entry, true)
-    _ = try scheduleService.schedule(open, on: day, startHour: 10, durationHours: 1)
+    _ = try scheduleService.schedule(open, on: day, startMinute: 10 * 60, durationMinutes: 60)
 
     #expect(dayService.incompleteItemCount(on: day) == 1)
 }
@@ -175,7 +175,7 @@ import SwiftData
     let yesterday = dayService.day(for: TestDate.at(2026, 5, 21))
     let done = taskService.addBrainDumpItem(title: "Top done", on: yesterday)
     try taskService.escalate(done, on: yesterday)
-    let entry = try scheduleService.schedule(done, on: yesterday, startHour: 9, durationHours: 1)
+    let entry = try scheduleService.schedule(done, on: yesterday, startMinute: 9 * 60, durationMinutes: 60)
     scheduleService.setCompleted(entry, true)
 
     dayService.rollover(now: TestDate.at(2026, 5, 22))

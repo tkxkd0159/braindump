@@ -22,8 +22,8 @@ struct VisualSnapshotTests {
         try taskService.escalate(manuscript, on: day)
         let email = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
         _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
-        _ = try scheduleService.schedule(manuscript, on: day, startHour: 9, durationHours: 2)
-        _ = try scheduleService.schedule(email, on: day, startHour: 14, durationHours: 1)
+        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+        _ = try scheduleService.schedule(email, on: day, startMinute: 14 * 60, durationMinutes: 60)
 
         let state = AppState(
             context: context,
@@ -50,9 +50,9 @@ struct VisualSnapshotTests {
         let taskService = TaskService(context: context)
         let scheduleService = ScheduleService(context: context)
         let manuscript = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
-        _ = try scheduleService.schedule(manuscript, on: day, startHour: 9, durationHours: 2)
+        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
         let email = taskService.addBrainDumpItem(title: "Email literature review", on: day)
-        _ = try scheduleService.schedule(email, on: day, startHour: 14, durationHours: 1)
+        _ = try scheduleService.schedule(email, on: day, startMinute: 14 * 60, durationMinutes: 60)
 
         let view = ScheduleSection(day: day, isReadOnly: false)
             .environment(\.modelContext, context)
@@ -72,8 +72,8 @@ struct VisualSnapshotTests {
         try taskService.escalate(manuscript, on: day)
         let email = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
         _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
-        _ = try scheduleService.schedule(manuscript, on: day, startHour: 9, durationHours: 2)
-        _ = try scheduleService.schedule(email, on: day, startHour: 14, durationHours: 1)
+        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+        _ = try scheduleService.schedule(email, on: day, startMinute: 14 * 60, durationMinutes: 60)
 
         let view = VStack(alignment: .leading, spacing: 48) {
             Top3Section(day: day, isReadOnly: false)
@@ -96,8 +96,8 @@ struct VisualSnapshotTests {
         try taskService.escalate(manuscript, on: day)
         let email = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
         _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
-        _ = try scheduleService.schedule(manuscript, on: day, startHour: 9, durationHours: 2)
-        _ = try scheduleService.schedule(email, on: day, startHour: 14, durationHours: 1)
+        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+        _ = try scheduleService.schedule(email, on: day, startMinute: 14 * 60, durationMinutes: 60)
 
         let view = AppShell()
             .environment(\.modelContext, context)
@@ -133,15 +133,28 @@ struct VisualSnapshotTests {
     /// gridline underneath rather than leaving a 1-2pt strip).
     @Test
     func scheduleBlockGeometryMatchesExpectations() throws {
-        let startHour = 9
-        let duration = 2
-        let viewStart = 5
+        let startMinute = 9 * 60
+        let durationMinutes = 120
+        let dayStartMinute = 5 * 60
         let slotHeight: CGFloat = 50
         let hourHeight = slotHeight * 2
-        let expectedHeight = CGFloat(duration) * hourHeight
-        let expectedOffsetY = CGFloat(startHour - viewStart) * hourHeight + 1
+        let expectedHeight = CGFloat(durationMinutes) / 60.0 * hourHeight
+        let expectedOffsetY = CGFloat(startMinute - dayStartMinute) / 60.0 * hourHeight + 1
         #expect(expectedHeight == 200)
         #expect(expectedOffsetY == 401)
+    }
+
+    @Test
+    func scheduleBlockGeometryHandlesFractionalHours() throws {
+        let startMinute = 9 * 60 + 15
+        let durationMinutes = 75
+        let dayStartMinute = 5 * 60
+        let slotHeight: CGFloat = 50
+        let hourHeight = slotHeight * 2
+        let expectedHeight = CGFloat(durationMinutes) / 60.0 * hourHeight
+        let expectedOffsetY = CGFloat(startMinute - dayStartMinute) / 60.0 * hourHeight + 1
+        #expect(expectedHeight == 125)
+        #expect(expectedOffsetY == 426)
     }
 
     // MARK: - Rendering

@@ -8,6 +8,7 @@ public struct Top3Section: View {
     let openDetail: ((TaskItem, ScheduleEntry?) -> Void)?
 
     @State private var hoveredID: UUID?
+    @State private var expandedIDs: Set<UUID> = []
 
     public init(
         day: Day,
@@ -86,6 +87,8 @@ public struct Top3Section: View {
         let scheduled = scheduleEntry(for: item)
         let completed = isCompleted(item)
         let hovered = hoveredID == item.id
+        let expanded = expandedIDs.contains(item.id)
+        let hasDetails = !item.notes.isEmpty || !item.tags.isEmpty
 
         return HStack(alignment: .top, spacing: 16) {
             SquareCheckbox(isOn: completed) {
@@ -95,12 +98,12 @@ public struct Top3Section: View {
             .padding(.top, 2)
             .disabled(isReadOnly || scheduled == nil)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 if let scheduled {
                     HStack(spacing: 6) {
                         Image(systemName: "clock")
                             .font(.system(size: 13, weight: .regular))
-                        Text(timeLabel(for: scheduled.startHour))
+                        Text(TimeFormat.clock(minute: scheduled.startMinute))
                             .font(Theme.Font.tinyLabel)
                             .tracking(-0.3)
                             .textCase(.uppercase)
@@ -108,20 +111,38 @@ public struct Top3Section: View {
                     .foregroundStyle(Theme.Palette.primary)
                 }
                 titleField(for: item, completed: completed)
+                if !item.tags.isEmpty {
+                    TagChipRow(tags: item.tags)
+                }
+                if expanded && !item.notes.isEmpty {
+                    Text(item.notes)
+                        .font(Theme.Font.bodyMd)
+                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer(minLength: 0)
             if !isReadOnly {
-                IconActionButton(
-                    systemName: "arrow.down.to.line",
-                    help: "Demote to Brain Dump",
-                    visible: hovered
-                ) {
-                    taskService.deescalate(item, on: day)
+                HStack(spacing: 4) {
+                    IconActionButton(
+                        systemName: "pencil",
+                        help: "Edit",
+                        visible: hovered
+                    ) {
+                        openDetail?(item, scheduled)
+                    }
+                    IconActionButton(
+                        systemName: "arrow.down.to.line",
+                        help: "Demote to Brain Dump",
+                        visible: hovered
+                    ) {
+                        taskService.deescalate(item, on: day)
+                    }
                 }
             }
         }
         .padding(16)
-        .background(scheduled != nil ? Theme.Palette.surfaceContainer : Theme.Palette.surfaceContainerLowest)
+        .background(rowBackground(scheduled: scheduled, expanded: expanded))
         .overlay(
             Rectangle()
                 .strokeBorder(
@@ -132,9 +153,20 @@ public struct Top3Section: View {
         .contentShape(Rectangle())
         .onHover { inside in hoveredID = inside ? item.id : (hoveredID == item.id ? nil : hoveredID) }
         .onTapGesture {
-            openDetail?(item, scheduled)
+            guard hasDetails else { return }
+            if expanded {
+                expandedIDs.remove(item.id)
+            } else {
+                expandedIDs.insert(item.id)
+            }
         }
         .draggable(TaskItemDragPayload(id: item.id))
+    }
+
+    private func rowBackground(scheduled: ScheduleEntry?, expanded: Bool) -> Color {
+        if expanded { return Theme.Palette.surfaceContainerHigh.opacity(0.7) }
+        if scheduled != nil { return Theme.Palette.surfaceContainer }
+        return Theme.Palette.surfaceContainerLowest
     }
 
     private func emptyRow(index: Int) -> some View {
@@ -160,12 +192,6 @@ public struct Top3Section: View {
             .font(Theme.Font.bodyLg)
             .strikethrough(completed)
             .foregroundStyle(completed ? Theme.Palette.outline : Theme.Palette.onSurface)
-    }
-
-    private func timeLabel(for hour: Int) -> String {
-        let h = hour % 12 == 0 ? 12 : hour % 12
-        let suffix = hour < 12 ? "AM" : "PM"
-        return "\(h):00 \(suffix)"
     }
 }
 
