@@ -5,10 +5,12 @@ public struct TaskDetailFocus: Identifiable {
     public let id = UUID()
     public let item: TaskItem
     public let entry: ScheduleEntry?
+    public let startInEditMode: Bool
 
-    public init(item: TaskItem, entry: ScheduleEntry? = nil) {
+    public init(item: TaskItem, entry: ScheduleEntry? = nil, startInEditMode: Bool = true) {
         self.item = item
         self.entry = entry
+        self.startInEditMode = startInEditMode
     }
 }
 
@@ -17,6 +19,7 @@ public struct TaskDetailSheet: View {
     let focus: TaskDetailFocus
     let dismiss: () -> Void
 
+    @State private var isEditing: Bool
     @State private var title: String
     @State private var notes: String
     @State private var tags: [String]
@@ -31,6 +34,7 @@ public struct TaskDetailSheet: View {
     public init(focus: TaskDetailFocus, dismiss: @escaping () -> Void) {
         self.focus = focus
         self.dismiss = dismiss
+        _isEditing = State(initialValue: focus.startInEditMode)
         _title = State(initialValue: focus.item.title)
         _notes = State(initialValue: focus.item.notes)
         _tags = State(initialValue: focus.item.tags)
@@ -48,8 +52,23 @@ public struct TaskDetailSheet: View {
     }
 
     public var body: some View {
+        Group {
+            if isEditing {
+                editBody
+            } else {
+                readOnlyBody
+            }
+        }
+        .padding(28)
+        .frame(width: 480)
+        .background(Theme.Palette.surfaceContainerLowest)
+    }
+
+    // MARK: - Edit mode
+
+    private var editBody: some View {
         VStack(alignment: .leading, spacing: 20) {
-            header
+            editHeader
             titleField
             notesField
             tagsField
@@ -64,17 +83,103 @@ public struct TaskDetailSheet: View {
             }
             footer
         }
-        .padding(28)
-        .frame(width: 480)
-        .background(Theme.Palette.surfaceContainerLowest)
     }
 
-    private var header: some View {
+    private var editHeader: some View {
         Text("Task")
             .font(Theme.Font.tinyLabel)
             .tracking(1.5)
             .textCase(.uppercase)
             .foregroundStyle(Theme.Palette.primary)
+    }
+
+    // MARK: - Read-only mode
+
+    private var readOnlyBody: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            readOnlyHeader
+            Text(focus.item.title)
+                .font(Theme.Font.headlineMd)
+                .foregroundStyle(Theme.Palette.onSurface)
+                .fixedSize(horizontal: false, vertical: true)
+            if !focus.item.notes.isEmpty {
+                readOnlySection("Description") {
+                    Text(focus.item.notes)
+                        .font(Theme.Font.bodyMd)
+                        .foregroundStyle(Theme.Palette.onSurface)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            if !focus.item.tags.isEmpty {
+                readOnlySection("Tags") {
+                    TagChipRow(tags: focus.item.tags)
+                }
+            }
+            if let entry = focus.entry {
+                readOnlySection("Time Block") {
+                    HStack(spacing: 10) {
+                        Rectangle()
+                            .fill(Theme.BlockPalette.color(at: entry.colorIndex))
+                            .frame(width: 12, height: 12)
+                        Text(TimeFormat.range(startMinute: entry.startMinute, durationMinutes: entry.durationMinutes))
+                            .font(Theme.Font.bodyMd)
+                            .foregroundStyle(Theme.Palette.onSurface)
+                        if entry.isCompleted {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(Theme.Palette.primary)
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+            readOnlyFooter
+        }
+        .frame(minHeight: 220, alignment: .topLeading)
+    }
+
+    private var readOnlyHeader: some View {
+        HStack(alignment: .center) {
+            Text("Task")
+                .font(Theme.Font.tinyLabel)
+                .tracking(1.5)
+                .textCase(.uppercase)
+                .foregroundStyle(Theme.Palette.primary)
+            Spacer()
+            Button(action: { isEditing = true }) {
+                Image(systemName: "pencil")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(Theme.Palette.onSurface)
+                    .frame(width: 30, height: 30)
+                    .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .help("Edit task")
+        }
+    }
+
+    private func readOnlySection<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.uppercased())
+                .font(Theme.Font.tinyLabel)
+                .tracking(1.2)
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            content()
+        }
+    }
+
+    private var readOnlyFooter: some View {
+        HStack {
+            Spacer()
+            Button("Close", action: dismiss)
+                .buttonStyle(.plain)
+                .font(Theme.Font.labelMd)
+                .padding(.horizontal, 18)
+                .frame(height: 34)
+                .foregroundStyle(Theme.Palette.primary)
+                .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
+                .keyboardShortcut(.cancelAction)
+        }
     }
 
     private var titleField: some View {
@@ -116,47 +221,12 @@ public struct TaskDetailSheet: View {
                 .font(Theme.Font.tinyLabel)
                 .tracking(1.2)
                 .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            if !tags.isEmpty {
-                FlowLayout(spacing: 6) {
-                    ForEach(tags, id: \.self) { tag in
-                        tagChip(tag)
-                    }
-                }
-            }
-            HStack(spacing: 8) {
-                TextField("Add tag…", text: $newTagDraft)
-                    .textFieldStyle(.plain)
-                    .font(Theme.Font.bodyMd)
-                    .padding(8)
-                    .background(Theme.Palette.surfaceContainer)
-                    .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
-                    .onSubmit(addTag)
-                Button("Add", action: addTag)
-                    .buttonStyle(.plain)
-                    .font(Theme.Font.labelMd)
-                    .padding(.horizontal, 12)
-                    .frame(height: 32)
-                    .foregroundStyle(Theme.Palette.primary)
-                    .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
-            }
+            TagInputField(
+                tags: $tags,
+                draft: $newTagDraft,
+                allKnownTags: TaskService(context: context).allTags()
+            )
         }
-    }
-
-    private func tagChip(_ tag: String) -> some View {
-        HStack(spacing: 4) {
-            Text(tag)
-                .font(Theme.Font.caption)
-                .foregroundStyle(Theme.Palette.onSurface)
-            Button(action: { tags.removeAll { $0 == tag } }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Theme.Palette.surfaceContainerHigh)
     }
 
     private var scheduleEditor: some View {
@@ -193,7 +263,7 @@ public struct TaskDetailSheet: View {
     private var footer: some View {
         HStack(spacing: 12) {
             Spacer()
-            Button("Cancel", action: dismiss)
+            Button("Cancel", action: cancelEdit)
                 .buttonStyle(.plain)
                 .font(Theme.Font.labelMd)
                 .padding(.horizontal, 18)
@@ -212,11 +282,22 @@ public struct TaskDetailSheet: View {
         }
     }
 
-    private func addTag() {
-        let trimmed = newTagDraft.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !trimmed.isEmpty, !tags.contains(trimmed) else { newTagDraft = ""; return }
-        tags.append(trimmed)
-        newTagDraft = ""
+    private func cancelEdit() {
+        if focus.startInEditMode {
+            dismiss()
+        } else {
+            title = focus.item.title
+            notes = focus.item.notes
+            tags = focus.item.tags
+            newTagDraft = ""
+            if let entry = focus.entry {
+                startDate = Self.referenceDate(forMinute: entry.startMinute)
+                endDate = Self.referenceDate(forMinute: entry.endMinute)
+                colorIndex = entry.colorIndex
+            }
+            errorText = nil
+            isEditing = false
+        }
     }
 
     private func commit() {

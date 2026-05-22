@@ -13,8 +13,8 @@ public struct DayView: View {
     public var body: some View {
         let dayService = DayService(context: context)
         let day = dayService.day(for: state.selectedDate)
-        let openDetail: (TaskItem, ScheduleEntry?) -> Void = { item, entry in
-            detailFocus = TaskDetailFocus(item: item, entry: entry ?? day.schedule.first { $0.item?.id == item.id })
+        let openDetail: (TaskDetailFocus) -> Void = { focus in
+            detailFocus = focus
         }
         GeometryReader { geo in
             let gutter: CGFloat = 24

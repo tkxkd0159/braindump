@@ -7,14 +7,14 @@ public struct ScheduleSection: View {
     let isReadOnly: Bool
     let dayStartHour: Int
     let dayEndHour: Int
-    let openDetail: ((TaskItem, ScheduleEntry?) -> Void)?
+    let openDetail: ((TaskDetailFocus) -> Void)?
 
     public init(
         day: Day,
         isReadOnly: Bool,
         dayStartHour: Int = 5,
         dayEndHour: Int = 22,
-        openDetail: ((TaskItem, ScheduleEntry?) -> Void)? = nil
+        openDetail: ((TaskDetailFocus) -> Void)? = nil
     ) {
         self.day = day
         self.isReadOnly = isReadOnly
@@ -106,7 +106,7 @@ public struct ScheduleSection: View {
                         onRemove: { scheduleService.unschedule(entryRef) },
                         onTap: {
                             if let item = entryRef.item {
-                                openDetail?(item, entryRef)
+                                openDetail?(TaskDetailFocus(item: item, entry: entryRef, startInEditMode: false))
                             }
                         }
                     )

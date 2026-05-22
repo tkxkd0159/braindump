@@ -77,7 +77,7 @@ struct Stage5SnapshotTests {
             defaults: ephemeralDefaults()
         )
         let view = SettingsSheet(state: state, dismiss: {})
-        renderViaHostingWindow(view, size: NSSize(width: 440, height: 320), filename: "stage5-settings-sheet.png")
+        renderViaHostingWindow(view, size: NSSize(width: 820, height: 540), filename: "stage5-settings-sheet.png")
     }
 
     @Test

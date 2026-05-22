@@ -5,7 +5,7 @@ public struct Top3Section: View {
     @Environment(\.modelContext) private var context
     let day: Day
     let isReadOnly: Bool
-    let openDetail: ((TaskItem, ScheduleEntry?) -> Void)?
+    let openDetail: ((TaskDetailFocus) -> Void)?
 
     @State private var hoveredID: UUID?
     @State private var expandedIDs: Set<UUID> = []
@@ -13,7 +13,7 @@ public struct Top3Section: View {
     public init(
         day: Day,
         isReadOnly: Bool,
-        openDetail: ((TaskItem, ScheduleEntry?) -> Void)? = nil
+        openDetail: ((TaskDetailFocus) -> Void)? = nil
     ) {
         self.day = day
         self.isReadOnly = isReadOnly
@@ -129,7 +129,7 @@ public struct Top3Section: View {
                         help: "Edit",
                         visible: hovered
                     ) {
-                        openDetail?(item, scheduled)
+                        openDetail?(TaskDetailFocus(item: item, entry: scheduled, startInEditMode: true))
                     }
                     IconActionButton(
                         systemName: "arrow.down.to.line",

@@ -5,7 +5,7 @@ public struct BrainDumpSection: View {
     @Environment(\.modelContext) private var context
     let day: Day
     let isReadOnly: Bool
-    let openDetail: ((TaskItem, ScheduleEntry?) -> Void)?
+    let openDetail: ((TaskDetailFocus) -> Void)?
 
     @State private var newTitle: String = ""
     @State private var newNotes: String = ""
@@ -15,12 +15,12 @@ public struct BrainDumpSection: View {
     @State private var expandedIDs: Set<UUID> = []
     @FocusState private var addFocus: AddFieldFocus?
 
-    private enum AddFieldFocus: Hashable { case title, notes, tag }
+    private enum AddFieldFocus: Hashable { case title, notes }
 
     public init(
         day: Day,
         isReadOnly: Bool,
-        openDetail: ((TaskItem, ScheduleEntry?) -> Void)? = nil
+        openDetail: ((TaskDetailFocus) -> Void)? = nil
     ) {
         self.day = day
         self.isReadOnly = isReadOnly
@@ -130,7 +130,7 @@ public struct BrainDumpSection: View {
                         help: "Edit",
                         visible: hovered
                     ) {
-                        openDetail?(item, scheduled)
+                        openDetail?(TaskDetailFocus(item: item, entry: scheduled, startInEditMode: true))
                     }
                     IconActionButton(
                         systemName: "arrow.up.to.line",
@@ -205,27 +205,13 @@ public struct BrainDumpSection: View {
                         .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
                         .focused($addFocus, equals: .notes)
                         .onSubmit(submitNew)
-                    if !newTags.isEmpty {
-                        TagChipRow(tags: newTags)
-                    }
+                    TagInputField(
+                        tags: $newTags,
+                        draft: $newTagDraft,
+                        allKnownTags: taskService.allTags(),
+                        isCompact: true
+                    )
                     HStack(spacing: 6) {
-                        TextField("Add tag…", text: $newTagDraft)
-                            .textFieldStyle(.plain)
-                            .font(Theme.Font.caption)
-                            .padding(.horizontal, 8)
-                            .frame(height: 26)
-                            .background(Theme.Palette.surfaceContainer)
-                            .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
-                            .focused($addFocus, equals: .tag)
-                            .onSubmit(commitTag)
-                        Button("Add tag", action: commitTag)
-                            .buttonStyle(.plain)
-                            .font(Theme.Font.caption)
-                            .padding(.horizontal, 10)
-                            .frame(height: 26)
-                            .foregroundStyle(Theme.Palette.primary)
-                            .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
-                            .disabled(newTagDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         Spacer(minLength: 0)
                         Button("Save", action: submitNew)
                             .buttonStyle(.plain)
@@ -251,19 +237,12 @@ public struct BrainDumpSection: View {
         )
     }
 
-    private func commitTag() {
-        let trimmed = newTagDraft.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        defer { newTagDraft = "" }
-        guard !trimmed.isEmpty, !newTags.contains(trimmed) else { return }
-        newTags.append(trimmed)
-        addFocus = .tag
-    }
-
     private func submitNew() {
         let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else { return }
-        if !newTagDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            commitTag()
+        let trimmedTagDraft = newTagDraft.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if !trimmedTagDraft.isEmpty, !newTags.contains(trimmedTagDraft) {
+            newTags.append(trimmedTagDraft)
         }
         taskService.addBrainDumpItem(
             title: trimmedTitle,

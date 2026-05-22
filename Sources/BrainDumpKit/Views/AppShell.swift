@@ -203,7 +203,7 @@ private struct MainCanvas: View {
             }
             .buttonStyle(.plain)
             .help(state.isSidebarVisible ? "Hide Sidebar" : "Show Sidebar")
-            .keyboardShortcut("s", modifiers: [.command, .control])
+            .keyboardShortcut("b", modifiers: [.command])
             Spacer()
         }
         .padding(.horizontal, 24)
@@ -255,30 +255,14 @@ private struct DateHeader: View {
                     .frame(maxWidth: 640, alignment: .leading)
             }
             Spacer()
-            CalendarAvatarBlock(state: state)
+            WorkspaceAvatar()
         }
     }
 }
 
-private struct CalendarAvatarBlock: View {
-    @Bindable var state: AppState
-    @State private var showPicker: Bool = false
-
+private struct WorkspaceAvatar: View {
     var body: some View {
         HStack(spacing: 14) {
-            Button(action: { showPicker = true }) {
-                Image(systemName: "calendar")
-                    .font(.system(size: 18, weight: .regular))
-                    .foregroundStyle(Theme.Palette.primary)
-                    .frame(width: 36, height: 36)
-                    .background(Circle().fill(Color.clear))
-            }
-            .buttonStyle(.plain)
-            .help("Open Calendar")
-            .popover(isPresented: $showPicker, arrowEdge: .bottom) {
-                MonthCalendarView(state: state, dismiss: { showPicker = false })
-            }
-
             ZStack {
                 Rectangle()
                     .fill(Theme.Palette.surfaceContainerHigh)
