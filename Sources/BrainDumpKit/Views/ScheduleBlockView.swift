@@ -65,9 +65,9 @@ public struct ScheduleBlockView: View {
             if !isReadOnly && hovered {
                 Button(action: onRemove) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(foregroundColor.opacity(0.85))
-                        .frame(width: 22, height: 22)
+                        .frame(width: 24, height: 22)
                         .background(blockColor.opacity(0.65))
                 }
                 .buttonStyle(.plain)
@@ -75,7 +75,7 @@ public struct ScheduleBlockView: View {
             }
             Button(action: { if !isReadOnly { onToggleComplete() } }) {
                 Image(systemName: entry.isCompleted ? "checkmark.square.fill" : "lock.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(foregroundColor.opacity(entry.isCompleted ? 1 : 0.85))
             }
             .buttonStyle(.plain)

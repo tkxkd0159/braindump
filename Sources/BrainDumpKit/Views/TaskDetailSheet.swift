@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 public struct TaskDetailFocus: Identifiable {
     public let id = UUID()
@@ -116,19 +116,21 @@ public struct TaskDetailSheet: View {
                 }
             }
             if let entry = focus.entry {
-                readOnlySection("Time Block") {
-                    HStack(spacing: 10) {
-                        Rectangle()
-                            .fill(Theme.BlockPalette.color(at: entry.colorIndex))
-                            .frame(width: 12, height: 12)
-                        Text(TimeFormat.range(startMinute: entry.startMinute, durationMinutes: entry.durationMinutes))
-                            .font(Theme.Font.bodyMd)
-                            .foregroundStyle(Theme.Palette.onSurface)
-                        if entry.isCompleted {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(Theme.Palette.primary)
-                        }
+                HStack(spacing: 10) {
+                    Rectangle()
+                        .fill(Theme.BlockPalette.color(at: entry.colorIndex))
+                        .frame(width: 12, height: 12)
+                    Text(
+                        TimeFormat.range(
+                            startMinute: entry.startMinute,
+                            durationMinutes: entry.durationMinutes)
+                    )
+                    .font(Theme.Font.bodyMd)
+                    .foregroundStyle(Theme.Palette.onSurface)
+                    if entry.isCompleted {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Theme.Palette.primary)
                     }
                 }
             }
@@ -148,7 +150,7 @@ public struct TaskDetailSheet: View {
             Spacer()
             Button(action: { isEditing = true }) {
                 Image(systemName: "pencil")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(Theme.Palette.onSurface)
                     .frame(width: 30, height: 30)
                     .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
@@ -158,7 +160,9 @@ public struct TaskDetailSheet: View {
         }
     }
 
-    private func readOnlySection<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+    private func readOnlySection<Content: View>(
+        _ label: String, @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label.uppercased())
                 .font(Theme.Font.tinyLabel)
@@ -175,7 +179,7 @@ public struct TaskDetailSheet: View {
                 .buttonStyle(.plain)
                 .font(Theme.Font.labelMd)
                 .padding(.horizontal, 18)
-                .frame(height: 34)
+                .frame(height: 30)
                 .foregroundStyle(Theme.Palette.primary)
                 .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
                 .keyboardShortcut(.cancelAction)
@@ -236,27 +240,29 @@ public struct TaskDetailSheet: View {
                 .tracking(1.2)
                 .foregroundStyle(Theme.Palette.onSurfaceVariant)
             HStack(alignment: .center, spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Starts")
-                        .font(Theme.Font.tinyLabel)
-                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                    DatePicker("", selection: $startDate, displayedComponents: .hourAndMinute)
-                        .labelsHidden()
-                        .datePickerStyle(.field)
-                }
+                editableTimeField(label: "Starts", date: $startDate)
                 Image(systemName: "arrow.right")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(Theme.Palette.onSurfaceVariant)
                     .padding(.top, 16)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Ends")
-                        .font(Theme.Font.tinyLabel)
-                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                    DatePicker("", selection: $endDate, displayedComponents: .hourAndMinute)
-                        .labelsHidden()
-                        .datePickerStyle(.field)
-                }
+                editableTimeField(label: "Ends", date: $endDate)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func editableTimeField(label: String, date: Binding<Date>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(Theme.Font.tinyLabel)
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            DatePicker("", selection: date, displayedComponents: .hourAndMinute)
+                .labelsHidden()
+                .datePickerStyle(.field)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Theme.Palette.surfaceContainer)
+                .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
         }
     }
 
@@ -325,7 +331,8 @@ public struct TaskDetailSheet: View {
             let timeChanged = entry.startMinute != start || entry.durationMinutes != duration
             if timeChanged {
                 do {
-                    try scheduleService.reschedule(entry, startMinute: start, durationMinutes: duration)
+                    try scheduleService.reschedule(
+                        entry, startMinute: start, durationMinutes: duration)
                 } catch TodoError.scheduleConflict {
                     errorText = "Conflicts with another block"
                     return
@@ -355,7 +362,8 @@ public struct TaskDetailSheet: View {
     private static func referenceDate(forMinute minute: Int) -> Date {
         let cal = Calendar(identifier: .gregorian)
         let base = cal.startOfDay(for: Date(timeIntervalSinceReferenceDate: 0))
-        return cal.date(byAdding: .minute, value: min(24 * 60 - 1, max(0, minute)), to: base) ?? base
+        return cal.date(byAdding: .minute, value: min(24 * 60 - 1, max(0, minute)), to: base)
+            ?? base
     }
 }
 
@@ -383,7 +391,9 @@ struct FlowLayout: Layout {
         return CGSize(width: maxWidth.isFinite ? maxWidth : x, height: totalHeight)
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    func placeSubviews(
+        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+    ) {
         var x: CGFloat = bounds.minX
         var y: CGFloat = bounds.minY
         var rowHeight: CGFloat = 0

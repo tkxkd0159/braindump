@@ -1,8 +1,9 @@
-import Foundation
-import SwiftUI
-import SwiftData
-import Testing
 import AppKit
+import Foundation
+import SwiftData
+import SwiftUI
+import Testing
+
 @testable import BrainDumpKit
 
 /// In-process rendering of the Stage 5 changes (sidebar toggle, inline task
@@ -23,7 +24,8 @@ struct Stage5SnapshotTests {
             defaults: ephemeralDefaults()
         )
         let view = compositeShell(state: state, day: day, context: context)
-        renderViaHostingWindow(view, size: NSSize(width: 1280, height: 1100), filename: "stage5-sidebar-visible.png")
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1280, height: 1100), filename: "stage5-sidebar-visible.png")
     }
 
     @Test
@@ -38,7 +40,8 @@ struct Stage5SnapshotTests {
         )
         state.isSidebarVisible = false
         let view = compositeShell(state: state, day: day, context: context)
-        renderViaHostingWindow(view, size: NSSize(width: 1024, height: 1100), filename: "stage5-sidebar-hidden.png")
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1024, height: 1100), filename: "stage5-sidebar-hidden.png")
     }
 
     @Test
@@ -50,7 +53,8 @@ struct Stage5SnapshotTests {
             .padding(24)
             .frame(width: 520, height: 700)
             .background(Theme.Palette.surface)
-        renderViaHostingWindow(view, size: NSSize(width: 520, height: 700), filename: "stage5-brain-dump.png")
+        renderViaHostingWindow(
+            view, size: NSSize(width: 520, height: 700), filename: "stage5-brain-dump.png")
     }
 
     @Test
@@ -63,7 +67,8 @@ struct Stage5SnapshotTests {
             onConfirm: { _, _, _ in },
             onCancel: {}
         )
-        renderViaHostingWindow(view, size: NSSize(width: 420, height: 360), filename: "stage5-time-block-sheet.png")
+        renderViaHostingWindow(
+            view, size: NSSize(width: 420, height: 360), filename: "stage5-time-block-sheet.png")
     }
 
     @Test
@@ -77,7 +82,8 @@ struct Stage5SnapshotTests {
             defaults: ephemeralDefaults()
         )
         let view = SettingsSheet(state: state, dismiss: {})
-        renderViaHostingWindow(view, size: NSSize(width: 820, height: 540), filename: "stage5-settings-sheet.png")
+        renderViaHostingWindow(
+            view, size: NSSize(width: 820, height: 540), filename: "stage5-settings-sheet.png")
     }
 
     @Test
@@ -88,7 +94,9 @@ struct Stage5SnapshotTests {
             .environment(\.modelContext, context)
             .padding(24)
             .background(Theme.Palette.surface)
-        renderViaHostingWindow(view, size: NSSize(width: 700, height: 1200), filename: "stage5-schedule-custom-bounds.png")
+        renderViaHostingWindow(
+            view, size: NSSize(width: 700, height: 1200),
+            filename: "stage5-schedule-custom-bounds.png")
     }
 
     // MARK: - Helpers
@@ -113,11 +121,15 @@ struct Stage5SnapshotTests {
         )
         _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
         if includeFractionalEntry {
-            _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60 + 15, durationMinutes: 75)
-            _ = try scheduleService.schedule(email, on: day, startMinute: 14 * 60, durationMinutes: 60)
+            _ = try scheduleService.schedule(
+                manuscript, on: day, startMinute: 9 * 60 + 15, durationMinutes: 75)
+            _ = try scheduleService.schedule(
+                email, on: day, startMinute: 14 * 60, durationMinutes: 60)
         } else {
-            _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
-            _ = try scheduleService.schedule(email, on: day, startMinute: 14 * 60, durationMinutes: 60)
+            _ = try scheduleService.schedule(
+                manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+            _ = try scheduleService.schedule(
+                email, on: day, startMinute: 14 * 60, durationMinutes: 60)
         }
         return (context, day)
     }
@@ -213,7 +225,7 @@ private struct MiniSidebar: View {
                 Text("Deep Work Planner")
                     .font(Theme.Font.headlineMd)
                     .foregroundStyle(Theme.Palette.primary)
-                Text("Research Fellow")
+                Text("Daily Timebox Planner")
                     .font(Theme.Font.labelMd)
                     .tracking(0.5)
                     .foregroundStyle(Theme.Palette.onSurfaceVariant)
@@ -249,7 +261,8 @@ private struct MiniSidebar: View {
 
     private func nav(_ icon: String, _ label: String, active: Bool) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 16, weight: active ? .semibold : .regular)).frame(width: 22)
+            Image(systemName: icon).font(.system(size: 16, weight: active ? .semibold : .regular))
+                .frame(width: 22)
             Text(label).font(Theme.Font.labelMd).tracking(0.7)
             Spacer()
         }

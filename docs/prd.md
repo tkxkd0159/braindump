@@ -4,7 +4,7 @@
 The **Scholarly Planner** is a high-fidelity productivity application designed for researchers, academics, and deep-work practitioners. It leverages the "Harvard Timeboxing" methodology—integrating top priorities, a brain dump for cognitive offloading, and a granular hourly schedule to facilitate peak cognitive focus.
 
 ## 2. Target Audience
-- **Primary:** Research fellows, PhD students, and academic professionals.
+- **Primary:** Daily Timebox Planners, PhD students, and academic professionals.
 - **Secondary:** Knowledge workers requiring structured, distraction-free planning environments.
 
 ## 3. Core Features & User Flows

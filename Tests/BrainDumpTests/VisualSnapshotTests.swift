@@ -1,8 +1,9 @@
-import Foundation
-import SwiftUI
-import SwiftData
-import Testing
 import AppKit
+import Foundation
+import SwiftData
+import SwiftUI
+import Testing
+
 @testable import BrainDumpKit
 
 /// Renders SwiftUI views via an offscreen NSWindow + NSHostingView so we can
@@ -18,18 +19,22 @@ struct VisualSnapshotTests {
         let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
         let taskService = TaskService(context: context)
         let scheduleService = ScheduleService(context: context)
-        let manuscript = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+        let manuscript = taskService.addBrainDumpItem(
+            title: "Finalize Manuscript Revision", on: day)
         try taskService.escalate(manuscript, on: day)
-        let email = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
+        let email = taskService.addBrainDumpItem(
+            title: "Email literature review to Dr. Aris", on: day)
         _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
-        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+        _ = try scheduleService.schedule(
+            manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
         _ = try scheduleService.schedule(email, on: day, startMinute: 14 * 60, durationMinutes: 60)
 
         let state = AppState(
             context: context,
             now: { TestDate.at(2026, 5, 22) },
             wiseSaying: WiseSaying(
-                quote: "The key is not to prioritize what's on your schedule, but to schedule your priorities.",
+                quote:
+                    "The key is not to prioritize what's on your schedule, but to schedule your priorities.",
                 author: "Stephen Covey"
             )
         )
@@ -39,7 +44,8 @@ struct VisualSnapshotTests {
             .padding(.horizontal, 64)
             .padding(.top, 36)
             .background(Theme.Palette.surface)
-        renderViaHostingWindow(view, size: NSSize(width: 1180, height: 1900), filename: "snapshot-day.png")
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1180, height: 1900), filename: "snapshot-day.png")
     }
 
     @Test
@@ -49,8 +55,10 @@ struct VisualSnapshotTests {
         let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
         let taskService = TaskService(context: context)
         let scheduleService = ScheduleService(context: context)
-        let manuscript = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
-        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+        let manuscript = taskService.addBrainDumpItem(
+            title: "Finalize Manuscript Revision", on: day)
+        _ = try scheduleService.schedule(
+            manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
         let email = taskService.addBrainDumpItem(title: "Email literature review", on: day)
         _ = try scheduleService.schedule(email, on: day, startMinute: 14 * 60, durationMinutes: 60)
 
@@ -58,7 +66,8 @@ struct VisualSnapshotTests {
             .environment(\.modelContext, context)
             .padding(24)
             .background(Theme.Palette.surface)
-        renderViaHostingWindow(view, size: NSSize(width: 700, height: 2000), filename: "snapshot-schedule.png")
+        renderViaHostingWindow(
+            view, size: NSSize(width: 700, height: 2000), filename: "snapshot-schedule.png")
     }
 
     @Test
@@ -68,11 +77,14 @@ struct VisualSnapshotTests {
         let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
         let taskService = TaskService(context: context)
         let scheduleService = ScheduleService(context: context)
-        let manuscript = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+        let manuscript = taskService.addBrainDumpItem(
+            title: "Finalize Manuscript Revision", on: day)
         try taskService.escalate(manuscript, on: day)
-        let email = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
+        let email = taskService.addBrainDumpItem(
+            title: "Email literature review to Dr. Aris", on: day)
         _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
-        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+        _ = try scheduleService.schedule(
+            manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
         _ = try scheduleService.schedule(email, on: day, startMinute: 14 * 60, durationMinutes: 60)
 
         let view = VStack(alignment: .leading, spacing: 48) {
@@ -82,7 +94,8 @@ struct VisualSnapshotTests {
         .environment(\.modelContext, context)
         .padding(24)
         .background(Theme.Palette.surface)
-        renderViaHostingWindow(view, size: NSSize(width: 520, height: 900), filename: "snapshot-left-column.png")
+        renderViaHostingWindow(
+            view, size: NSSize(width: 520, height: 900), filename: "snapshot-left-column.png")
     }
 
     @Test
@@ -92,23 +105,28 @@ struct VisualSnapshotTests {
         let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
         let taskService = TaskService(context: context)
         let scheduleService = ScheduleService(context: context)
-        let manuscript = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+        let manuscript = taskService.addBrainDumpItem(
+            title: "Finalize Manuscript Revision", on: day)
         try taskService.escalate(manuscript, on: day)
-        let email = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
+        let email = taskService.addBrainDumpItem(
+            title: "Email literature review to Dr. Aris", on: day)
         _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
-        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+        _ = try scheduleService.schedule(
+            manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
         _ = try scheduleService.schedule(email, on: day, startMinute: 14 * 60, durationMinutes: 60)
 
         let view = AppShell()
             .environment(\.modelContext, context)
-        renderViaHostingWindow(view, size: NSSize(width: 1440, height: 1900), filename: "snapshot-full-app.png")
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1440, height: 1900), filename: "snapshot-full-app.png")
     }
 
     @Test
     func captureSidebar() throws {
         Fonts.registerIfNeeded()
         let view = SidebarPreview()
-        renderViaHostingWindow(view, size: NSSize(width: 256, height: 900), filename: "snapshot-sidebar.png")
+        renderViaHostingWindow(
+            view, size: NSSize(width: 256, height: 900), filename: "snapshot-sidebar.png")
     }
 
     /// When the window is too narrow to fit sidebar + canvas, the sidebar
@@ -170,11 +188,14 @@ struct VisualSnapshotTests {
         let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
         let taskService = TaskService(context: context)
         let scheduleService = ScheduleService(context: context)
-        let manuscript = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+        let manuscript = taskService.addBrainDumpItem(
+            title: "Finalize Manuscript Revision", on: day)
         try taskService.escalate(manuscript, on: day)
-        let email = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
+        let email = taskService.addBrainDumpItem(
+            title: "Email literature review to Dr. Aris", on: day)
         _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
-        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+        _ = try scheduleService.schedule(
+            manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
         _ = try scheduleService.schedule(email, on: day, startMinute: 14 * 60, durationMinutes: 60)
 
         let view = AppShell()
@@ -194,13 +215,15 @@ struct VisualSnapshotTests {
         let context = try InMemoryStore.makeContext()
         let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
         let taskService = TaskService(context: context)
-        let manuscript = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+        let manuscript = taskService.addBrainDumpItem(
+            title: "Finalize Manuscript Revision", on: day)
         try taskService.escalate(manuscript, on: day)
         _ = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
         _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
         let top3 = Set(day.top3ItemIDs)
         let brainDump = day.items.filter { !top3.contains($0.id) }.map(\.title).sorted()
-        #expect(brainDump == ["Email literature review to Dr. Aris", "Research Zotero plugin updates"])
+        #expect(
+            brainDump == ["Email literature review to Dr. Aris", "Research Zotero plugin updates"])
     }
 
     /// Block geometry — offset = hour offset plus the 1pt top divider; height
@@ -230,6 +253,60 @@ struct VisualSnapshotTests {
         let expectedOffsetY = CGFloat(startMinute - dayStartMinute) / 60.0 * hourHeight + 1
         #expect(expectedHeight == 125)
         #expect(expectedOffsetY == 426)
+    }
+
+    @Test
+    func captureTaskDetailSheetReadOnly() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        let scheduleService = ScheduleService(context: context)
+        let item = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+        taskService.updateNotes(
+            item,
+            notes:
+                "Outline arguments for the rebuttal letter; draft a section response to reviewer 2 first."
+        )
+        taskService.updateTags(item, tags: ["writing", "deep-work"])
+        let entry = try scheduleService.schedule(
+            item, on: day, startMinute: 9 * 60, durationMinutes: 120)
+
+        let focus = TaskDetailFocus(item: item, entry: entry, startInEditMode: false)
+        let view = TaskDetailSheet(focus: focus, dismiss: {})
+            .environment(\.modelContext, context)
+            .padding(40)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: 600, height: 600),
+            filename: "snapshot-task-detail-readonly.png"
+        )
+    }
+
+    @Test
+    func captureTaskDetailSheetEdit() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        let scheduleService = ScheduleService(context: context)
+        let item = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+        taskService.updateNotes(item, notes: "Outline arguments for the rebuttal letter.")
+        taskService.updateTags(item, tags: ["writing"])
+        let entry = try scheduleService.schedule(
+            item, on: day, startMinute: 9 * 60, durationMinutes: 120)
+
+        let focus = TaskDetailFocus(item: item, entry: entry, startInEditMode: true)
+        let view = TaskDetailSheet(focus: focus, dismiss: {})
+            .environment(\.modelContext, context)
+            .padding(40)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: 600, height: 800),
+            filename: "snapshot-task-detail-edit.png"
+        )
     }
 
     // MARK: - Rendering
@@ -275,10 +352,7 @@ private struct SidebarPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Deep Work Planner")
-                    .font(Theme.Font.headlineMd)
-                    .foregroundStyle(Theme.Palette.primary)
-                Text("Research Fellow")
+                Text("Daily Timebox Planner")
                     .font(Theme.Font.labelMd)
                     .tracking(0.5)
                     .foregroundStyle(Theme.Palette.onSurfaceVariant)
