@@ -25,6 +25,7 @@ mkdir -p "$APP_DIR/Contents/Resources"
 
 cp "$BIN_DIR/todoosx" "$APP_DIR/Contents/MacOS/todoosx"
 cp "$REPO_ROOT/scripts/Info.plist" "$APP_DIR/Contents/Info.plist"
+cp "$REPO_ROOT/scripts/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 
 # Copy SPM resource bundles into Resources/ so Bundle.module resolves at runtime.
 # Bundle.module searches Bundle.main.resourceURL first, which is Contents/Resources/.

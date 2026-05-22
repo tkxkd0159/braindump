@@ -150,9 +150,9 @@ public struct ScheduleSection: View {
     private func slotRow(hour: Int, isTopOfHour: Bool) -> some View {
         HStack(alignment: .top, spacing: 0) {
             timeLabel(hour: hour, isTopOfHour: isTopOfHour)
-                .frame(width: Self.timeLabelWidth, height: Self.slotHeight, alignment: .topTrailing)
-                .padding(.trailing, 16)
                 .padding(.top, 8)
+                .padding(.trailing, 16)
+                .frame(width: Self.timeLabelWidth, height: Self.slotHeight, alignment: .topTrailing)
                 .overlay(alignment: .trailing) {
                     Rectangle()
                         .fill(Theme.Palette.outlineVariant)
@@ -167,6 +167,7 @@ public struct ScheduleSection: View {
                         .frame(height: 1)
                 }
         }
+        .frame(height: Self.slotHeight)
     }
 
     @ViewBuilder
