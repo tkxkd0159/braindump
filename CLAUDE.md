@@ -89,3 +89,9 @@ Tests/
 ## Toolchain notes
 
 The project assumes a normal Xcode install with its license accepted (`sudo xcodebuild -license accept`). If only Command Line Tools are available, `swift test` silently no-ops (no `xctest` runner) and `@Model`/`#Predicate` won't compile (missing macro plugins). The git history (commits up to and including `7886c75`) contains a workaround that used a custom test-runner executable + manual `-plugin-path` flags; that was reverted in favor of the conventional layout once Xcode was available. If you encounter the CLT-only environment again, look at that commit's parents for the pattern.
+
+
+## Coding Task Completion Rules
+- If the request is related to UI, check output always with screenshot tests for visual accuracy.
+- All implemenations must be covered by tests. If the request is related to a bug fix, include a test that fails before the fix and passes after.
+- For new features, include tests that cover the expected behavior and edge cases.

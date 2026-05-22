@@ -111,6 +111,81 @@ struct VisualSnapshotTests {
         renderViaHostingWindow(view, size: NSSize(width: 256, height: 900), filename: "snapshot-sidebar.png")
     }
 
+    /// When the window is too narrow to fit sidebar + canvas, the sidebar
+    /// must auto-collapse even though the user's `isSidebarVisible`
+    /// preference is still on. Renders at width just below the threshold;
+    /// the bitmap should show the canvas only.
+    @Test
+    func captureFullAppShellNarrowAutoCollapsesSidebar() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        _ = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+
+        let view = AppShell()
+            .environment(\.modelContext, context)
+        let narrow = AppShell.sidebarThreshold - 1
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: narrow, height: 1100),
+            filename: "snapshot-full-app-narrow.png"
+        )
+    }
+
+    /// At or above the threshold the sidebar should render normally.
+    @Test
+    func captureFullAppShellAtThresholdShowsSidebar() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        _ = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+
+        let view = AppShell()
+            .environment(\.modelContext, context)
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: AppShell.sidebarThreshold, height: 1100),
+            filename: "snapshot-full-app-at-threshold.png"
+        )
+    }
+
+    /// Threshold sanity: must equal canvasMin + sidebarWidth. If these drift
+    /// apart, the auto-collapse will fire at the wrong window size.
+    @Test
+    func sidebarThresholdMatchesCanvasPlusSidebar() {
+        #expect(AppShell.sidebarThreshold == AppShell.canvasMin + AppShell.sidebarWidth)
+        #expect(AppShell.canvasMin == 992)
+        #expect(AppShell.sidebarThreshold == 1248)
+    }
+
+    /// When the window is wider than the previous 1280 cap, the canvas
+    /// must fill the available width instead of leaving empty space on
+    /// the right.
+    @Test
+    func captureFullAppShellWideFillsCanvas() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        let scheduleService = ScheduleService(context: context)
+        let manuscript = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+        try taskService.escalate(manuscript, on: day)
+        let email = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
+        _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
+        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+        _ = try scheduleService.schedule(email, on: day, startMinute: 14 * 60, durationMinutes: 60)
+
+        let view = AppShell()
+            .environment(\.modelContext, context)
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: 2000, height: 1400),
+            filename: "snapshot-full-app-wide.png"
+        )
+    }
+
     /// Asserts the brain-dump fetched items list matches what we expect, to
     /// distinguish data-layer issues from rendering issues.
     @Test

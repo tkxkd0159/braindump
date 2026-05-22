@@ -5,21 +5,34 @@ public struct AppShell: View {
     @Environment(\.modelContext) private var context
     @State private var state: AppState?
 
+    static let sidebarWidth: CGFloat = 256
+    // Left column (Top3 + BrainDump) >= 360, schedule >= 480, gutter 24,
+    // canvas horizontal padding 64 * 2.
+    static let canvasMin: CGFloat = 64 + 360 + 24 + 480 + 64
+    static let sidebarThreshold: CGFloat = canvasMin + sidebarWidth
+
     public init() {}
 
     public var body: some View {
         Group {
             if let state {
-                HStack(spacing: 0) {
-                    if state.isSidebarVisible {
-                        Sidebar(state: state)
-                            .transition(.move(edge: .leading))
+                GeometryReader { proxy in
+                    // Reminders-style auto-collapse: when the window can't fit
+                    // sidebar + canvas, hide the sidebar without touching the
+                    // user's preference, so it reappears when the window grows.
+                    let canFit = proxy.size.width >= Self.sidebarThreshold
+                    let effectivelyVisible = state.isSidebarVisible && canFit
+                    HStack(spacing: 0) {
+                        if effectivelyVisible {
+                            Sidebar(state: state)
+                                .transition(.move(edge: .leading))
+                        }
+                        MainCanvas(state: state)
                     }
-                    MainCanvas(state: state)
+                    .animation(.easeInOut(duration: 0.18), value: effectivelyVisible)
+                    .background(Theme.Palette.surface)
                 }
-                .animation(.easeInOut(duration: 0.18), value: state.isSidebarVisible)
-                .background(Theme.Palette.surface)
-                .frame(minWidth: minWidth(for: state), minHeight: 760)
+                .frame(minWidth: Self.canvasMin, minHeight: 760)
             } else {
                 ProgressView()
                     .controlSize(.large)
@@ -30,13 +43,6 @@ public struct AppShell: View {
         .onAppear {
             if state == nil { state = AppState(context: context) }
         }
-    }
-
-    private func minWidth(for state: AppState) -> CGFloat {
-        // Left column (Top3 + BrainDump) >= 360, schedule >= 480, gutter 24,
-        // canvas horizontal padding 64 * 2. Plus sidebar when visible.
-        let canvasMin: CGFloat = 64 + 360 + 24 + 480 + 64
-        return canvasMin + (state.isSidebarVisible ? 256 : 0)
     }
 }
 
@@ -185,7 +191,6 @@ private struct MainCanvas: View {
                         .padding(.bottom, 48)
                 }
             }
-            .frame(maxWidth: 1280, alignment: .topLeading)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
