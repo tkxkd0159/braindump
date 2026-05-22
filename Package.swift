@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "BrainDump",
+    name: "BrainDumpKit",
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "BrainDumpKit", targets: ["BrainDumpKit"]),
