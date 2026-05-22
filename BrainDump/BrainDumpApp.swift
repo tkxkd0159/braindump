@@ -1,9 +1,9 @@
 import SwiftUI
 import SwiftData
-import TodoosxKit
+import BrainDumpKit
 
 @main
-struct TodoosxApp: App {
+struct BrainDumpApp: App {
     let container: ModelContainer
 
     init() {
@@ -18,7 +18,7 @@ struct TodoosxApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("todoosx") {
+        WindowGroup("Brain Dump") {
             AppShell()
                 .frame(minWidth: 1100, minHeight: 760)
                 .tint(Theme.Palette.primary)

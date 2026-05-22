@@ -2,29 +2,23 @@
 import PackageDescription
 
 let package = Package(
-    name: "todoosx",
+    name: "BrainDump",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "TodoosxKit", targets: ["TodoosxKit"]),
-        .executable(name: "todoosx", targets: ["todoosx"]),
+        .library(name: "BrainDumpKit", targets: ["BrainDumpKit"]),
     ],
     targets: [
         .target(
-            name: "TodoosxKit",
-            path: "Sources/TodoosxKit",
+            name: "BrainDumpKit",
+            path: "Sources/BrainDumpKit",
             resources: [
                 .process("Resources/Fonts"),
             ]
         ),
-        .executableTarget(
-            name: "todoosx",
-            dependencies: ["TodoosxKit"],
-            path: "Sources/todoosx"
-        ),
         .testTarget(
-            name: "todoosxTests",
-            dependencies: ["TodoosxKit"],
-            path: "Tests/todoosxTests"
+            name: "BrainDumpTests",
+            dependencies: ["BrainDumpKit"],
+            path: "Tests/BrainDumpTests"
         ),
     ]
 )

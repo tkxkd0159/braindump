@@ -3,7 +3,7 @@ import SwiftUI
 import SwiftData
 import Testing
 import AppKit
-@testable import TodoosxKit
+@testable import BrainDumpKit
 
 /// Renders SwiftUI views via an offscreen NSWindow + NSHostingView so we can
 /// visually compare against references/main.html without needing the screen
@@ -171,7 +171,7 @@ struct VisualSnapshotTests {
             Issue.record("PNG encoding failed for \(filename)")
             return
         }
-        let outDir = URL(fileURLWithPath: "/tmp/todoosx-shots")
+        let outDir = URL(fileURLWithPath: "/tmp/braindump-shots")
         try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
         do {
             try data.write(to: outDir.appendingPathComponent(filename))

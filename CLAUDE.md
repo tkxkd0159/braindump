@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`todoosx` is a macOS To Do app modeled on the Harvard Business Review Daily Timebox planner. Each day is a single sheet with three sections — **Brain Dump**, **Top 3**, and an hour-blocked **Schedule** — and uncompleted items roll forward to the next day's brain dump automatically.
+**Brain Dump** is a macOS To Do app modeled on the Harvard Business Review Daily Timebox planner. Each day is a single sheet with three sections — **Brain Dump**, **Top 3**, and an hour-blocked **Schedule** — and uncompleted items roll forward to the next day's brain dump automatically.
+
+> The repo directory is still named `todoosx/` (original codename); the app and all Swift targets are `BrainDump` / `BrainDumpKit`.
 
 UI aesthetic guidance ("Neo-Academic" — deep navy + crimson, Hanken Grotesk + Source Serif 4, thin borders, no heavy shadows) is in `docs/design-system.md`.
 
@@ -12,33 +14,46 @@ UI aesthetic guidance ("Neo-Academic" — deep navy + crimson, Hanken Grotesk + 
 
 Requires macOS 14+ and Xcode (full Xcode, not just Command Line Tools — see [Toolchain notes](#toolchain-notes)).
 
+**Day-to-day development is in Xcode:**
+
 ```bash
-swift build                       # build library + app
-swift test                        # run all tests
-swift test --filter <name>        # run a single test (substring match on @Test function name)
-./scripts/run-app.sh              # build, wrap in .app bundle, open the app
-CONFIG=release ./scripts/run-app.sh   # release build of the app bundle
-swift build -c release --target todoosx   # release build of app only
-                                          # (release build of full package fails because the test
-                                          # target uses @testable; this is normal)
+xed BrainDump.xcodeproj           # opens in Xcode; Cmd+R runs + debugs the app
 ```
 
-**Do not use `swift run todoosx` to launch the app.** It runs the binary, but macOS won't draw a window because a bare Mach-O is not treated as a GUI app. `scripts/run-app.sh` assembles a minimal `.app` bundle around the built binary (`scripts/Info.plist` is the bundle's `Info.plist`), ad-hoc-codesigns it, and `open`s it.
+**Library + tests (SwiftPM):**
+
+```bash
+swift build                       # build BrainDumpKit
+swift test                        # run all tests
+swift test --filter <name>        # run a single test (substring match on @Test function name)
+```
+
+**Headless launch (CLI/CI):**
+
+```bash
+./scripts/run-app.sh              # xcodebuild build + open BrainDump.app
+CONFIG=Release ./scripts/run-app.sh
+```
 
 ## Architecture
 
 ```
+Package.swift             ← library + tests only (no executable target)
+BrainDump.xcodeproj/      ← macOS app target; depends on local SPM package for BrainDumpKit
+BrainDump/                ← app target sources
+  BrainDumpApp.swift      ← @main; configures ModelContainer
+  Info.plist              ← bundle metadata (uses $(PRODUCT_NAME) etc. for xcodebuild substitution)
+  AppIcon.icns
 Sources/
-  TodoosxKit/        ← library: models, services, AppState, views
-    Models/          ← SwiftData @Model classes + TodoError + drag payload
-    Services/        ← Day/Task/Schedule services (business logic)
-    App/             ← AppState (@Observable, owns selected date)
-    Views/           ← SwiftUI views — AppShell, DayView, three section views
-    Support/         ← Date+StartOfDay
-  todoosx/           ← app executable (@main TodoosxApp; configures ModelContainer)
+  BrainDumpKit/           ← library: models, services, AppState, views
+    Models/               ← SwiftData @Model classes + TodoError + drag payload
+    Services/             ← Day/Task/Schedule services (business logic)
+    App/                  ← AppState (@Observable, owns selected date)
+    Views/                ← SwiftUI views — AppShell, DayView, three section views
+    Support/              ← Date+StartOfDay
 Tests/
-  todoosxTests/      ← Swift Testing target (XCTest is NOT used)
-    TestSupport/     ← InMemoryStore + TestDate helpers
+  BrainDumpTests/         ← Swift Testing target (XCTest is NOT used)
+    TestSupport/          ← InMemoryStore + TestDate helpers
 ```
 
 **The shape that matters:**
@@ -63,11 +78,12 @@ Tests/
 
 ## Conventions
 
-- **Public surface on `TodoosxKit`**: types referenced from the `todoosx` app target or `todoosxTests` must be `public`. Tests use `@testable import TodoosxKit` for internal access but the app target uses the public surface.
+- **Public surface on `BrainDumpKit`**: types referenced from the `BrainDump` app target must be `public`. Tests use `@testable import BrainDumpKit` for internal access but the app target consumes the public surface only.
 - **`@MainActor` is per-`@Test` function**, not per-class. Swift Testing has no test classes here; suite grouping is implicit.
 - **Test dates** are constructed via `TestDate.at(y, m, d, hour:, minute:)` so they're deterministic across machines and time zones.
 - **Date normalization**: every `Date` that flows into a `Day.date` is run through `Date.startOfLocalDay()`. The unique constraint on `Day.date` depends on this; don't bypass it.
 - **Tests live next to the code they exercise** (one file per service / per major concept). When extending a service, append `@Test` functions to the matching `*Tests.swift` file rather than creating a new file.
+- **Adding files to the app target**: drop them in `BrainDump/` and add the reference in Xcode (or by hand in `BrainDump.xcodeproj/project.pbxproj`). Library code belongs under `Sources/BrainDumpKit/` and is picked up automatically by SwiftPM.
 
 ## Toolchain notes
 

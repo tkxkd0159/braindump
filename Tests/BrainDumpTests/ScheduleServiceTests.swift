@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import SwiftData
-@testable import TodoosxKit
+@testable import BrainDumpKit
 
 @MainActor
 private func setupScheduleTest() throws -> (ModelContext, DayService, TaskService, ScheduleService, Day) {

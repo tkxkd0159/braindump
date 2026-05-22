@@ -1,6 +1,6 @@
 import Foundation
 import SwiftData
-@testable import TodoosxKit
+@testable import BrainDumpKit
 
 @MainActor
 enum InMemoryStore {

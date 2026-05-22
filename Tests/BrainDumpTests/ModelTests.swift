@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import SwiftData
-@testable import TodoosxKit
+@testable import BrainDumpKit
 
 @MainActor
 @Test func canInsertAndFetchADay() throws {
