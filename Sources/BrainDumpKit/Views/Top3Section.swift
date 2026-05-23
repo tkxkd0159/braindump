@@ -238,6 +238,9 @@ struct Top3SlotRow: View {
     private func handleDrop(payloads: [TaskItemDragPayload]) -> Bool {
         guard !isReadOnly, let payload = payloads.first else { return false }
         guard let item = day.items.first(where: { $0.id == payload.id }) else { return false }
+        if let oldIndex = day.top3ItemIDs.firstIndex(of: item.id), oldIndex == index {
+            return false
+        }
         taskService.moveToTop3Slot(item, at: index, on: day)
         return true
     }

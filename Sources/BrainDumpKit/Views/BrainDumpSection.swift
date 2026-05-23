@@ -285,6 +285,7 @@ struct DemoteDropZone: ViewModifier {
     let isReadOnly: Bool
 
     @State private var isDropTargeted: Bool = false
+    @State private var wasTargeted: Bool = false
 
     func body(content: Content) -> some View {
         content
@@ -297,9 +298,16 @@ struct DemoteDropZone: ViewModifier {
                     .allowsHitTesting(false)
             )
             .dropDestination(for: TaskItemDragPayload.self) { payloads, _ in
-                handleDrop(payloads: payloads)
+                defer { wasTargeted = false }
+                // Reject the synthetic drop SwiftUI delivers when the user
+                // press-and-releases on the source row without the cursor
+                // ever entering the demote zone.
+                guard wasTargeted else { return false }
+                return handleDrop(payloads: payloads)
             } isTargeted: { targeted in
-                isDropTargeted = targeted && !isReadOnly && !day.top3ItemIDs.isEmpty
+                let active = targeted && !isReadOnly && !day.top3ItemIDs.isEmpty
+                isDropTargeted = active
+                if active { wasTargeted = true }
             }
     }
 
