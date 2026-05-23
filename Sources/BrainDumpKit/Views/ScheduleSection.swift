@@ -57,6 +57,8 @@ public struct ScheduleSection: View {
             TimeBlockSheet(
                 initialStartMinute: drop.startMinute,
                 initialDurationMinutes: 60,
+                dayStartHour: dayStartHour,
+                dayEndHour: dayEndHour,
                 onConfirm: { startMinute, durationMinutes, colorIndex in
                     confirmSchedule(itemID: drop.itemID, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex)
                 },
