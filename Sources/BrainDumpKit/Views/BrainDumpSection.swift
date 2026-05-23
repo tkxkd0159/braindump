@@ -71,7 +71,7 @@ public struct BrainDumpSection: View {
             Spacer()
             if !isReadOnly {
                 Button {
-                    addFocus = .title
+                    openDetail?(.create(day: day))
                 } label: {
                     Image(systemName: "plus.circle")
                         .font(.system(size: 18, weight: .regular))
