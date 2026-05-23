@@ -9,7 +9,6 @@ public struct Top3Section: View {
 
     @State private var hoveredID: UUID?
     @State private var expandedIDs: Set<UUID> = []
-    @State private var dropTargetSlot: Int?
 
     public init(
         day: Day,
@@ -19,16 +18,6 @@ public struct Top3Section: View {
         self.day = day
         self.isReadOnly = isReadOnly
         self.openDetail = openDetail
-    }
-
-    private var taskService: TaskService { TaskService(context: context) }
-
-    private func scheduleEntry(for item: TaskItem) -> ScheduleEntry? {
-        day.schedule.first { $0.item?.id == item.id }
-    }
-
-    private func isCompleted(_ item: TaskItem) -> Bool {
-        day.schedule.contains { $0.item?.id == item.id && $0.isCompleted }
     }
 
     private var top3Items: [TaskItem?] {
@@ -48,7 +37,31 @@ public struct Top3Section: View {
             header
             VStack(spacing: 16) {
                 ForEach(Array(top3Items.enumerated()), id: \.offset) { idx, item in
-                    slotRow(index: idx, item: item)
+                    Top3SlotRow(
+                        day: day,
+                        isReadOnly: isReadOnly,
+                        index: idx,
+                        item: item,
+                        isHovered: item.map { hoveredID == $0.id } ?? false,
+                        isExpanded: item.map { expandedIDs.contains($0.id) } ?? false,
+                        openDetail: openDetail,
+                        onHoverChange: { inside in
+                            guard let item else { return }
+                            if inside {
+                                hoveredID = item.id
+                            } else if hoveredID == item.id {
+                                hoveredID = nil
+                            }
+                        },
+                        onTapToggle: {
+                            guard let item else { return }
+                            if expandedIDs.contains(item.id) {
+                                expandedIDs.remove(item.id)
+                            } else {
+                                expandedIDs.insert(item.id)
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -74,21 +87,49 @@ public struct Top3Section: View {
                 .frame(height: 1)
         }
     }
+}
 
-    @ViewBuilder
-    private func slotRow(index: Int, item: TaskItem?) -> some View {
+/// One slot in the Top Priorities list. Owns its own `isTargeted` state so
+/// the cursor crossing a slot during a drag only re-evaluates this slot's
+/// body — not the whole `Top3Section`, which would also reconstruct every
+/// sibling slot's `.dropDestination` / `.draggable` and churn the AppKit
+/// drag bridge. Hover and expansion state stay on the parent so they
+/// follow the item by id, not the slot index.
+struct Top3SlotRow: View {
+    @Environment(\.modelContext) private var context
+    let day: Day
+    let isReadOnly: Bool
+    let index: Int
+    let item: TaskItem?
+    let isHovered: Bool
+    let isExpanded: Bool
+    let openDetail: ((TaskDetailFocus) -> Void)?
+    let onHoverChange: (Bool) -> Void
+    let onTapToggle: () -> Void
+
+    @State private var isTargeted: Bool = false
+
+    private var taskService: TaskService { TaskService(context: context) }
+
+    private func scheduleEntry(for item: TaskItem) -> ScheduleEntry? {
+        day.schedule.first { $0.item?.id == item.id }
+    }
+
+    private func isCompleted(_ item: TaskItem) -> Bool {
+        day.schedule.contains { $0.item?.id == item.id && $0.isCompleted }
+    }
+
+    var body: some View {
         if let item {
-            filledRow(item: item, index: index)
+            filledRow(item: item)
         } else {
-            emptyRow(index: index)
+            emptyRow
         }
     }
 
-    private func filledRow(item: TaskItem, index: Int) -> some View {
+    private func filledRow(item: TaskItem) -> some View {
         let scheduled = scheduleEntry(for: item)
         let completed = isCompleted(item)
-        let hovered = hoveredID == item.id
-        let expanded = expandedIDs.contains(item.id)
         let hasDetails = !item.notes.isEmpty || !item.tags.isEmpty
 
         return HStack(alignment: .top, spacing: 16) {
@@ -111,11 +152,14 @@ public struct Top3Section: View {
                     }
                     .foregroundStyle(Theme.Palette.primary)
                 }
-                titleField(for: item, completed: completed)
+                Text(item.title)
+                    .font(Theme.Font.bodyLg)
+                    .strikethrough(completed)
+                    .foregroundStyle(completed ? Theme.Palette.outline : Theme.Palette.onSurface)
                 if !item.tags.isEmpty {
                     TagChipRow(tags: item.tags)
                 }
-                if expanded && !item.notes.isEmpty {
+                if isExpanded && !item.notes.isEmpty {
                     Text(item.notes)
                         .font(Theme.Font.bodyMd)
                         .foregroundStyle(Theme.Palette.onSurfaceVariant)
@@ -127,55 +171,34 @@ public struct Top3Section: View {
                 IconActionButton(
                     systemName: "pencil",
                     help: "Edit",
-                    visible: hovered
+                    visible: isHovered
                 ) {
                     openDetail?(TaskDetailFocus(item: item, entry: scheduled, startInEditMode: true))
                 }
             }
         }
         .padding(16)
-        .background(rowBackground(scheduled: scheduled, expanded: expanded, targeted: dropTargetSlot == index))
+        .background(rowBackground(scheduled: scheduled))
         .overlay(
             Rectangle()
-                .strokeBorder(
-                    borderColor(hovered: hovered, targeted: dropTargetSlot == index),
-                    lineWidth: 1
-                )
+                .strokeBorder(borderColor, lineWidth: 1)
         )
         .contentShape(Rectangle())
-        .onHover { inside in hoveredID = inside ? item.id : (hoveredID == item.id ? nil : hoveredID) }
+        .onHover { inside in onHoverChange(inside) }
         .onTapGesture {
             guard hasDetails else { return }
-            if expanded {
-                expandedIDs.remove(item.id)
-            } else {
-                expandedIDs.insert(item.id)
-            }
+            onTapToggle()
         }
         .draggable(TaskItemDragPayload(id: item.id))
         .dropDestination(for: TaskItemDragPayload.self) { payloads, _ in
-            handleDrop(payloads: payloads, targetIndex: index)
+            handleDrop(payloads: payloads)
         } isTargeted: { targeted in
-            dropTargetSlot = targeted ? index : (dropTargetSlot == index ? nil : dropTargetSlot)
+            isTargeted = targeted
         }
     }
 
-    private func rowBackground(scheduled: ScheduleEntry?, expanded: Bool, targeted: Bool) -> Color {
-        if targeted { return Theme.Palette.surfaceContainerHigh.opacity(0.6) }
-        if expanded { return Theme.Palette.surfaceContainerHigh.opacity(0.7) }
-        if scheduled != nil { return Theme.Palette.surfaceContainer }
-        return Theme.Palette.surfaceContainerLowest
-    }
-
-    private func borderColor(hovered: Bool, targeted: Bool) -> Color {
-        if targeted { return Theme.Palette.primary }
-        if hovered { return Theme.Palette.primary }
-        return Theme.Palette.outlineVariant
-    }
-
-    private func emptyRow(index: Int) -> some View {
-        let targeted = dropTargetSlot == index
-        return HStack(alignment: .top, spacing: 16) {
+    private var emptyRow: some View {
+        HStack(alignment: .top, spacing: 16) {
             SquareCheckbox(isOn: false, action: {})
                 .padding(.top, 2)
                 .disabled(true)
@@ -185,33 +208,38 @@ public struct Top3Section: View {
             Spacer(minLength: 0)
         }
         .padding(16)
-        .background(targeted ? Theme.Palette.surfaceContainerHigh.opacity(0.6) : Theme.Palette.surfaceContainerLowest)
+        .background(isTargeted ? Theme.Palette.surfaceContainerHigh.opacity(0.6) : Theme.Palette.surfaceContainerLowest)
         .overlay(
             Rectangle().strokeBorder(
-                targeted ? Theme.Palette.primary : Theme.Palette.outlineVariant,
+                isTargeted ? Theme.Palette.primary : Theme.Palette.outlineVariant,
                 lineWidth: 1
             )
         )
         .dropDestination(for: TaskItemDragPayload.self) { payloads, _ in
-            handleDrop(payloads: payloads, targetIndex: index)
+            handleDrop(payloads: payloads)
         } isTargeted: { targeted in
-            dropTargetSlot = targeted ? index : (dropTargetSlot == index ? nil : dropTargetSlot)
+            isTargeted = targeted
         }
     }
 
-    private func handleDrop(payloads: [TaskItemDragPayload], targetIndex: Int) -> Bool {
-        guard !isReadOnly, let payload = payloads.first else { return false }
-        guard let item = day.items.first(where: { $0.id == payload.id }) else { return false }
-        taskService.moveToTop3Slot(item, at: targetIndex, on: day)
-        return true
+    private func rowBackground(scheduled: ScheduleEntry?) -> Color {
+        if isTargeted { return Theme.Palette.surfaceContainerHigh.opacity(0.6) }
+        if isExpanded { return Theme.Palette.surfaceContainerHigh.opacity(0.7) }
+        if scheduled != nil { return Theme.Palette.surfaceContainer }
+        return Theme.Palette.surfaceContainerLowest
     }
 
-    @ViewBuilder
-    private func titleField(for item: TaskItem, completed: Bool) -> some View {
-        Text(item.title)
-            .font(Theme.Font.bodyLg)
-            .strikethrough(completed)
-            .foregroundStyle(completed ? Theme.Palette.outline : Theme.Palette.onSurface)
+    private var borderColor: Color {
+        if isTargeted { return Theme.Palette.primary }
+        if isHovered { return Theme.Palette.primary }
+        return Theme.Palette.outlineVariant
+    }
+
+    private func handleDrop(payloads: [TaskItemDragPayload]) -> Bool {
+        guard !isReadOnly, let payload = payloads.first else { return false }
+        guard let item = day.items.first(where: { $0.id == payload.id }) else { return false }
+        taskService.moveToTop3Slot(item, at: index, on: day)
+        return true
     }
 }
 

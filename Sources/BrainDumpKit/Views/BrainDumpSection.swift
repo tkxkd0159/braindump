@@ -13,7 +13,6 @@ public struct BrainDumpSection: View {
     @State private var newTags: [String] = []
     @State private var hoveredID: UUID?
     @State private var expandedIDs: Set<UUID> = []
-    @State private var isDropTargeted: Bool = false
     @FocusState private var addFocus: AddFieldFocus?
 
     private enum AddFieldFocus: Hashable { case title, notes }
@@ -59,31 +58,7 @@ public struct BrainDumpSection: View {
             }
             .frame(maxHeight: 500)
         }
-        .contentShape(Rectangle())
-        .overlay(
-            Rectangle()
-                .strokeBorder(Theme.Palette.primary, lineWidth: 1)
-                .opacity(isDropTargeted ? 1 : 0)
-                .padding(-4)
-                .allowsHitTesting(false)
-        )
-        .dropDestination(for: TaskItemDragPayload.self) { payloads, _ in
-            handleDemoteDrop(payloads: payloads)
-        } isTargeted: { targeted in
-            isDropTargeted = targeted && !isReadOnly && hasTop3CandidateInDay
-        }
-    }
-
-    private var hasTop3CandidateInDay: Bool {
-        !day.top3ItemIDs.isEmpty
-    }
-
-    private func handleDemoteDrop(payloads: [TaskItemDragPayload]) -> Bool {
-        guard !isReadOnly, let payload = payloads.first else { return false }
-        guard day.top3ItemIDs.contains(payload.id) else { return false }
-        guard let item = day.items.first(where: { $0.id == payload.id }) else { return false }
-        taskService.deescalate(item, on: day)
-        return true
+        .modifier(DemoteDropZone(day: day, isReadOnly: isReadOnly))
     }
 
     private var header: some View {
@@ -297,5 +272,42 @@ public struct BrainDumpSection: View {
             submitNew()
         }
         return .handled
+    }
+}
+
+/// Owns the section-level drop target that demotes a Top3 item back into
+/// the brain dump. State lives here so the targeted-border opacity flip
+/// doesn't re-evaluate the section's ScrollView (and every row inside it)
+/// each time a drag enters or leaves the section.
+struct DemoteDropZone: ViewModifier {
+    @Environment(\.modelContext) private var context
+    let day: Day
+    let isReadOnly: Bool
+
+    @State private var isDropTargeted: Bool = false
+
+    func body(content: Content) -> some View {
+        content
+            .contentShape(Rectangle())
+            .overlay(
+                Rectangle()
+                    .strokeBorder(Theme.Palette.primary, lineWidth: 1)
+                    .opacity(isDropTargeted ? 1 : 0)
+                    .padding(-4)
+                    .allowsHitTesting(false)
+            )
+            .dropDestination(for: TaskItemDragPayload.self) { payloads, _ in
+                handleDrop(payloads: payloads)
+            } isTargeted: { targeted in
+                isDropTargeted = targeted && !isReadOnly && !day.top3ItemIDs.isEmpty
+            }
+    }
+
+    private func handleDrop(payloads: [TaskItemDragPayload]) -> Bool {
+        guard !isReadOnly, let payload = payloads.first else { return false }
+        guard day.top3ItemIDs.contains(payload.id) else { return false }
+        guard let item = day.items.first(where: { $0.id == payload.id }) else { return false }
+        TaskService(context: context).deescalate(item, on: day)
+        return true
     }
 }
