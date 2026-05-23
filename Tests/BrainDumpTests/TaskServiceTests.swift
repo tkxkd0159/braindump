@@ -193,6 +193,15 @@ import SwiftData
 
     taskService.moveToTop3Slot(a, at: 0, on: today)
     #expect(today.top3ItemIDs == [a.id, b.id])
+
+    // Stage an unrelated unsaved change. The no-op moveToTop3Slot below must
+    // not call context.save() — otherwise it would flush this change and the
+    // freeze/reshuffle from #5 would persist whenever the user drops on source.
+    let dummy = TaskItem(title: "dummy", isBacklog: true)
+    context.insert(dummy)
+    #expect(context.hasChanges)
+    taskService.moveToTop3Slot(a, at: 0, on: today)
+    #expect(context.hasChanges, "moveToTop3Slot must not save when the array is unchanged")
 }
 
 @MainActor

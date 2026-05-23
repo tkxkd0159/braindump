@@ -75,6 +75,7 @@ public final class TaskService {
     /// - Item not in Top3 + Top3 full + target past end: no-op.
     public func moveToTop3Slot(_ item: TaskItem, at targetIndex: Int, on day: Day) {
         var ids = day.top3ItemIDs
+        let original = ids
         if let oldIndex = ids.firstIndex(of: item.id) {
             if targetIndex < ids.count {
                 ids.swapAt(oldIndex, targetIndex)
@@ -89,6 +90,7 @@ public final class TaskService {
         } else {
             return
         }
+        if ids == original { return }
         day.top3ItemIDs = ids
         try? context.save()
     }
