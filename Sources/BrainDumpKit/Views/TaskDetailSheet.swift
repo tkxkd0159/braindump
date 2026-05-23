@@ -1,16 +1,23 @@
 import SwiftData
 import SwiftUI
 
-public struct TaskDetailFocus: Identifiable {
-    public let id = UUID()
-    public let item: TaskItem
-    public let entry: ScheduleEntry?
-    public let startInEditMode: Bool
+public enum TaskDetailFocus: Identifiable {
+    case create(day: Day)
+    case edit(item: TaskItem, entry: ScheduleEntry?, startInEditMode: Bool)
 
+    public var id: String {
+        switch self {
+        case .create(let day):
+            return "create-\(day.persistentModelID.hashValue)"
+        case .edit(let item, _, _):
+            return "edit-\(item.id.uuidString)"
+        }
+    }
+
+    /// Compatibility initializer for call sites that pass (item:entry:startInEditMode:).
+    /// Always returns `.edit(...)`.
     public init(item: TaskItem, entry: ScheduleEntry? = nil, startInEditMode: Bool = true) {
-        self.item = item
-        self.entry = entry
-        self.startInEditMode = startInEditMode
+        self = .edit(item: item, entry: entry, startInEditMode: startInEditMode)
     }
 }
 
@@ -24,36 +31,73 @@ public struct TaskDetailSheet: View {
     @State private var notes: String
     @State private var tags: [String]
     @State private var newTagDraft: String = ""
-    @State private var startDate: Date
-    @State private var endDate: Date
+    @State private var startMinute: Int
+    @State private var endMinute: Int
     @State private var colorIndex: Int
+    @State private var scheduleEnabled: Bool
     @State private var errorText: String?
 
-    private let hasEntry: Bool
+    private let startInEditModeAtInit: Bool
 
     public init(focus: TaskDetailFocus, dismiss: @escaping () -> Void) {
         self.focus = focus
         self.dismiss = dismiss
-        _isEditing = State(initialValue: focus.startInEditMode)
-        _title = State(initialValue: focus.item.title)
-        _notes = State(initialValue: focus.item.notes)
-        _tags = State(initialValue: focus.item.tags)
-        if let entry = focus.entry {
-            _startDate = State(initialValue: Self.referenceDate(forMinute: entry.startMinute))
-            _endDate = State(initialValue: Self.referenceDate(forMinute: entry.endMinute))
-            _colorIndex = State(initialValue: entry.colorIndex)
-            hasEntry = true
-        } else {
-            _startDate = State(initialValue: Self.referenceDate(forMinute: 9 * 60))
-            _endDate = State(initialValue: Self.referenceDate(forMinute: 10 * 60))
+        switch focus {
+        case .create:
+            _isEditing = State(initialValue: true)
+            _title = State(initialValue: "")
+            _notes = State(initialValue: "")
+            _tags = State(initialValue: [])
+            _startMinute = State(initialValue: 9 * 60)
+            _endMinute = State(initialValue: 10 * 60)
             _colorIndex = State(initialValue: 0)
-            hasEntry = false
+            _scheduleEnabled = State(initialValue: false)
+            startInEditModeAtInit = true
+        case .edit(let item, let entry, let startInEditMode):
+            _isEditing = State(initialValue: startInEditMode)
+            _title = State(initialValue: item.title)
+            _notes = State(initialValue: item.notes)
+            _tags = State(initialValue: item.tags)
+            if let entry {
+                _startMinute = State(initialValue: entry.startMinute)
+                _endMinute = State(initialValue: entry.endMinute)
+                _colorIndex = State(initialValue: entry.colorIndex)
+                _scheduleEnabled = State(initialValue: true)
+            } else {
+                _startMinute = State(initialValue: 9 * 60)
+                _endMinute = State(initialValue: 10 * 60)
+                _colorIndex = State(initialValue: 0)
+                _scheduleEnabled = State(initialValue: false)
+            }
+            startInEditModeAtInit = startInEditMode
         }
+    }
+
+    private var focusItem: TaskItem? {
+        if case .edit(let item, _, _) = focus { return item }
+        return nil
+    }
+
+    private var focusEntry: ScheduleEntry? {
+        if case .edit(_, let entry, _) = focus { return entry }
+        return nil
+    }
+
+    private var focusDay: Day? {
+        switch focus {
+        case .create(let day): return day
+        case .edit(let item, _, _): return item.day
+        }
+    }
+
+    private var isCreateMode: Bool {
+        if case .create = focus { return true }
+        return false
     }
 
     public var body: some View {
         Group {
-            if isEditing {
+            if isCreateMode || isEditing {
                 editBody
             } else {
                 readOnlyBody
@@ -72,10 +116,7 @@ public struct TaskDetailSheet: View {
             titleField
             notesField
             tagsField
-            if hasEntry {
-                scheduleEditor
-                ColorSwatchRow(selected: $colorIndex)
-            }
+            scheduleSection
             if let errorText {
                 Text(errorText)
                     .font(Theme.Font.caption)
@@ -86,36 +127,239 @@ public struct TaskDetailSheet: View {
     }
 
     private var editHeader: some View {
-        Text("Task")
+        Text(isCreateMode ? "New Task" : "Task")
             .font(Theme.Font.tinyLabel)
             .tracking(1.5)
             .textCase(.uppercase)
             .foregroundStyle(Theme.Palette.primary)
     }
 
+    @ViewBuilder
+    private var scheduleSection: some View {
+        if !isCreateMode, focusEntry != nil {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Time Block")
+                    .font(Theme.Font.tinyLabel)
+                    .tracking(1.2)
+                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                TimeRangePicker(
+                    startMinute: $startMinute,
+                    endMinute: $endMinute
+                )
+                ColorSwatchRow(selected: $colorIndex)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle(isOn: $scheduleEnabled) {
+                    Text("Add to Schedule")
+                        .font(Theme.Font.bodyMd)
+                        .foregroundStyle(Theme.Palette.onSurface)
+                }
+                .toggleStyle(.switch)
+                if scheduleEnabled {
+                    TimeRangePicker(
+                        startMinute: $startMinute,
+                        endMinute: $endMinute
+                    )
+                    ColorSwatchRow(selected: $colorIndex)
+                }
+            }
+        }
+    }
+
+    private var titleField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Title")
+                .font(Theme.Font.tinyLabel)
+                .tracking(1.2)
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            TextField("Title", text: $title)
+                .textFieldStyle(.plain)
+                .font(Theme.Font.bodyLgSemibold)
+                .foregroundStyle(Theme.Palette.onSurface)
+                .padding(10)
+                .background(Theme.Palette.surfaceContainer)
+                .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
+        }
+    }
+
+    private var notesField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Description")
+                .font(Theme.Font.tinyLabel)
+                .tracking(1.2)
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            TextEditor(text: $notes)
+                .font(Theme.Font.bodyMd)
+                .foregroundStyle(Theme.Palette.onSurface)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 80, maxHeight: 140)
+                .padding(8)
+                .background(Theme.Palette.surfaceContainer)
+                .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
+        }
+    }
+
+    private var tagsField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Tags")
+                .font(Theme.Font.tinyLabel)
+                .tracking(1.2)
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            TagInputField(
+                tags: $tags,
+                draft: $newTagDraft,
+                allKnownTags: TaskService(context: context).allTags()
+            )
+        }
+    }
+
+    private var footer: some View {
+        HStack(spacing: 12) {
+            Spacer()
+            Button("Cancel", action: cancelEdit)
+                .buttonStyle(.plain)
+                .font(Theme.Font.labelMd)
+                .padding(.horizontal, 18)
+                .frame(height: 34)
+                .foregroundStyle(Theme.Palette.primary)
+                .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
+                .keyboardShortcut(.cancelAction)
+            Button(isCreateMode ? "Add" : "Done", action: commit)
+                .buttonStyle(.plain)
+                .font(Theme.Font.labelMd)
+                .padding(.horizontal, 18)
+                .frame(height: 34)
+                .foregroundStyle(Theme.Palette.onPrimary)
+                .background(Theme.Palette.primary)
+                .keyboardShortcut(.defaultAction)
+        }
+    }
+
+    private func cancelEdit() {
+        if isCreateMode || startInEditModeAtInit {
+            dismiss()
+            return
+        }
+        title = focusItem?.title ?? ""
+        notes = focusItem?.notes ?? ""
+        tags = focusItem?.tags ?? []
+        newTagDraft = ""
+        if let entry = focusEntry {
+            startMinute = entry.startMinute
+            endMinute = entry.endMinute
+            colorIndex = entry.colorIndex
+            scheduleEnabled = true
+        } else {
+            scheduleEnabled = false
+        }
+        errorText = nil
+        isEditing = false
+    }
+
+    private func commit() {
+        let taskService = TaskService(context: context)
+        let scheduleService = ScheduleService(context: context)
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let item: TaskItem
+        switch focus {
+        case .create(let day):
+            guard !trimmedTitle.isEmpty else {
+                errorText = "Title is required"
+                return
+            }
+            item = taskService.addBrainDumpItem(
+                title: trimmedTitle,
+                notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
+                tags: tags,
+                on: day
+            )
+        case .edit(let existing, _, _):
+            item = existing
+            if !trimmedTitle.isEmpty, trimmedTitle != existing.title {
+                taskService.rename(existing, to: trimmedTitle)
+            }
+            if notes != existing.notes {
+                taskService.updateNotes(existing, notes: notes)
+            }
+            if tags != existing.tags {
+                taskService.updateTags(existing, tags: tags)
+            }
+        }
+
+        let entry = focusEntry
+        let wantsSchedule = scheduleEnabled || entry != nil
+        if wantsSchedule, let day = focusDay {
+            let start = TimeRangePicker.snap(minute: startMinute)
+            let end = TimeRangePicker.snap(minute: endMinute)
+            guard end > start else {
+                errorText = "End must be after start"
+                return
+            }
+            let duration = end - start
+            do {
+                if let entry {
+                    let timeChanged = entry.startMinute != start || entry.durationMinutes != duration
+                    if timeChanged {
+                        try scheduleService.reschedule(entry, startMinute: start, durationMinutes: duration)
+                    }
+                    if entry.colorIndex != colorIndex {
+                        scheduleService.setColorIndex(entry, colorIndex)
+                    }
+                } else {
+                    _ = try scheduleService.schedule(
+                        item,
+                        on: day,
+                        startMinute: start,
+                        durationMinutes: duration,
+                        colorIndex: colorIndex
+                    )
+                }
+            } catch TodoError.scheduleConflict {
+                errorText = "Conflicts with another block"
+                return
+            } catch TodoError.scheduleOutOfRange {
+                errorText = "Time range is out of bounds"
+                return
+            } catch {
+                errorText = "Could not schedule"
+                return
+            }
+        }
+        dismiss()
+    }
+
     // MARK: - Read-only mode
 
+    @ViewBuilder
     private var readOnlyBody: some View {
+        if let item = focusItem {
+            readOnlyContent(item: item)
+        }
+    }
+
+    private func readOnlyContent(item: TaskItem) -> some View {
         VStack(alignment: .leading, spacing: 20) {
             readOnlyHeader
-            Text(focus.item.title)
+            Text(item.title)
                 .font(Theme.Font.headlineMd)
                 .foregroundStyle(Theme.Palette.onSurface)
                 .fixedSize(horizontal: false, vertical: true)
-            if !focus.item.notes.isEmpty {
+            if !item.notes.isEmpty {
                 readOnlySection("Description") {
-                    Text(focus.item.notes)
+                    Text(item.notes)
                         .font(Theme.Font.bodyMd)
                         .foregroundStyle(Theme.Palette.onSurface)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            if !focus.item.tags.isEmpty {
+            if !item.tags.isEmpty {
                 readOnlySection("Tags") {
-                    TagChipRow(tags: focus.item.tags)
+                    TagChipRow(tags: item.tags)
                 }
             }
-            if let entry = focus.entry {
+            if let entry = focusEntry {
                 HStack(spacing: 10) {
                     Rectangle()
                         .fill(Theme.BlockPalette.color(at: entry.colorIndex))
@@ -184,186 +428,6 @@ public struct TaskDetailSheet: View {
                 .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
                 .keyboardShortcut(.cancelAction)
         }
-    }
-
-    private var titleField: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Title")
-                .font(Theme.Font.tinyLabel)
-                .tracking(1.2)
-                .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            TextField("Title", text: $title)
-                .textFieldStyle(.plain)
-                .font(Theme.Font.bodyLgSemibold)
-                .foregroundStyle(Theme.Palette.onSurface)
-                .padding(10)
-                .background(Theme.Palette.surfaceContainer)
-                .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
-        }
-    }
-
-    private var notesField: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Description")
-                .font(Theme.Font.tinyLabel)
-                .tracking(1.2)
-                .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            TextEditor(text: $notes)
-                .font(Theme.Font.bodyMd)
-                .foregroundStyle(Theme.Palette.onSurface)
-                .scrollContentBackground(.hidden)
-                .frame(minHeight: 80, maxHeight: 140)
-                .padding(8)
-                .background(Theme.Palette.surfaceContainer)
-                .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
-        }
-    }
-
-    private var tagsField: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Tags")
-                .font(Theme.Font.tinyLabel)
-                .tracking(1.2)
-                .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            TagInputField(
-                tags: $tags,
-                draft: $newTagDraft,
-                allKnownTags: TaskService(context: context).allTags()
-            )
-        }
-    }
-
-    private var scheduleEditor: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Time Block")
-                .font(Theme.Font.tinyLabel)
-                .tracking(1.2)
-                .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            HStack(alignment: .center, spacing: 16) {
-                editableTimeField(label: "Starts", date: $startDate)
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                    .padding(.top, 16)
-                editableTimeField(label: "Ends", date: $endDate)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func editableTimeField(label: String, date: Binding<Date>) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(Theme.Font.tinyLabel)
-                .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            DatePicker("", selection: date, displayedComponents: .hourAndMinute)
-                .labelsHidden()
-                .datePickerStyle(.field)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Theme.Palette.surfaceContainer)
-                .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
-        }
-    }
-
-    private var footer: some View {
-        HStack(spacing: 12) {
-            Spacer()
-            Button("Cancel", action: cancelEdit)
-                .buttonStyle(.plain)
-                .font(Theme.Font.labelMd)
-                .padding(.horizontal, 18)
-                .frame(height: 34)
-                .foregroundStyle(Theme.Palette.primary)
-                .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
-                .keyboardShortcut(.cancelAction)
-            Button("Done", action: commit)
-                .buttonStyle(.plain)
-                .font(Theme.Font.labelMd)
-                .padding(.horizontal, 18)
-                .frame(height: 34)
-                .foregroundStyle(Theme.Palette.onPrimary)
-                .background(Theme.Palette.primary)
-                .keyboardShortcut(.defaultAction)
-        }
-    }
-
-    private func cancelEdit() {
-        if focus.startInEditMode {
-            dismiss()
-        } else {
-            title = focus.item.title
-            notes = focus.item.notes
-            tags = focus.item.tags
-            newTagDraft = ""
-            if let entry = focus.entry {
-                startDate = Self.referenceDate(forMinute: entry.startMinute)
-                endDate = Self.referenceDate(forMinute: entry.endMinute)
-                colorIndex = entry.colorIndex
-            }
-            errorText = nil
-            isEditing = false
-        }
-    }
-
-    private func commit() {
-        let taskService = TaskService(context: context)
-        let scheduleService = ScheduleService(context: context)
-
-        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedTitle.isEmpty, trimmedTitle != focus.item.title {
-            taskService.rename(focus.item, to: trimmedTitle)
-        }
-        if notes != focus.item.notes {
-            taskService.updateNotes(focus.item, notes: notes)
-        }
-        if tags != focus.item.tags {
-            taskService.updateTags(focus.item, tags: tags)
-        }
-        if let entry = focus.entry {
-            let start = Self.snapMinute(date: startDate)
-            let end = Self.snapMinute(date: endDate)
-            guard end > start else {
-                errorText = "End must be after start"
-                return
-            }
-            let duration = end - start
-            let timeChanged = entry.startMinute != start || entry.durationMinutes != duration
-            if timeChanged {
-                do {
-                    try scheduleService.reschedule(
-                        entry, startMinute: start, durationMinutes: duration)
-                } catch TodoError.scheduleConflict {
-                    errorText = "Conflicts with another block"
-                    return
-                } catch TodoError.scheduleOutOfRange {
-                    errorText = "Time range is out of bounds"
-                    return
-                } catch {
-                    errorText = "Could not reschedule"
-                    return
-                }
-            }
-            if entry.colorIndex != colorIndex {
-                scheduleService.setColorIndex(entry, colorIndex)
-            }
-        }
-        dismiss()
-    }
-
-    private static func snapMinute(date: Date) -> Int {
-        let cal = Calendar(identifier: .gregorian)
-        let comps = cal.dateComponents([.hour, .minute], from: date)
-        let raw = (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
-        let snapped = Int((Double(raw) / 15.0).rounded()) * 15
-        return min(24 * 60, max(0, snapped))
-    }
-
-    private static func referenceDate(forMinute minute: Int) -> Date {
-        let cal = Calendar(identifier: .gregorian)
-        let base = cal.startOfDay(for: Date(timeIntervalSinceReferenceDate: 0))
-        return cal.date(byAdding: .minute, value: min(24 * 60 - 1, max(0, minute)), to: base)
-            ?? base
     }
 }
 

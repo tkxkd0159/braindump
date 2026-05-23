@@ -70,12 +70,20 @@ import Testing
 @Test func taskDetailFocusDefaultsToEditMode() {
     let item = TaskItem(title: "T")
     let focus = TaskDetailFocus(item: item)
-    #expect(focus.startInEditMode == true)
+    if case .edit(_, _, let startInEdit) = focus {
+        #expect(startInEdit == true)
+    } else {
+        Issue.record("Expected .edit case")
+    }
 }
 
 @MainActor
 @Test func taskDetailFocusHonorsExplicitReadOnly() {
     let item = TaskItem(title: "T")
     let focus = TaskDetailFocus(item: item, startInEditMode: false)
-    #expect(focus.startInEditMode == false)
+    if case .edit(_, _, let startInEdit) = focus {
+        #expect(startInEdit == false)
+    } else {
+        Issue.record("Expected .edit case")
+    }
 }

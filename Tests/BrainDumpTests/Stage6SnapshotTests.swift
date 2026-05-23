@@ -39,6 +39,29 @@ struct Stage6SnapshotTests {
     }
 
     @Test
+    func captureCreateModeWithToggleOff() throws {
+        Fonts.registerIfNeeded()
+        let (context, day, _) = try seedScheduledTask()
+        let view = TaskDetailSheet(focus: .create(day: day), dismiss: {})
+            .environment(\.modelContext, context)
+        renderViaHostingWindow(view, size: NSSize(width: 540, height: 540), filename: "feature23-create-toggle-off.png")
+    }
+
+    @Test
+    func captureEditWithoutEntryToggleVisible() throws {
+        Fonts.registerIfNeeded()
+        let (context, day, _) = try seedScheduledTask()
+        // Pick a brain-dump-only item (no entry yet).
+        let extra = TaskService(context: context).addBrainDumpItem(title: "Draft cover letter", on: day)
+        let view = TaskDetailSheet(
+            focus: .edit(item: extra, entry: nil, startInEditMode: true),
+            dismiss: {}
+        )
+        .environment(\.modelContext, context)
+        renderViaHostingWindow(view, size: NSSize(width: 540, height: 560), filename: "feature23-edit-no-entry-toggle.png")
+    }
+
+    @Test
     func captureTagInputWithSuggestions() throws {
         Fonts.registerIfNeeded()
         let view = TagInputFieldHarness()
