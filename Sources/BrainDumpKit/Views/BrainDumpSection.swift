@@ -13,6 +13,7 @@ public struct BrainDumpSection: View {
     @State private var newTags: [String] = []
     @State private var hoveredID: UUID?
     @State private var expandedIDs: Set<UUID> = []
+    @State private var escalateError: String?
     @FocusState private var addFocus: AddFieldFocus?
 
     private enum AddFieldFocus: Hashable { case title, notes }
@@ -45,6 +46,11 @@ public struct BrainDumpSection: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             header
+            if let escalateError {
+                Text(escalateError)
+                    .font(Theme.Font.caption)
+                    .foregroundStyle(Theme.Palette.secondary)
+            }
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 12) {
                     ForEach(brainDumpItems, id: \.id) { item in
@@ -158,6 +164,20 @@ public struct BrainDumpSection: View {
             }
         }
         .draggable(TaskItemDragPayload(id: item.id))
+        .contextMenu {
+            if !isReadOnly {
+                Button("Move to Priority") {
+                    do {
+                        try taskService.escalate(item, on: day)
+                        escalateError = nil
+                    } catch TodoError.top3Full {
+                        escalateError = "Top 3 is full"
+                    } catch {
+                        escalateError = "Could not move"
+                    }
+                }
+            }
+        }
     }
 
     private func rowBackground(scheduled: ScheduleEntry?, expanded: Bool) -> Color {

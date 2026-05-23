@@ -195,6 +195,13 @@ struct Top3SlotRow: View {
         } isTargeted: { targeted in
             isTargeted = targeted
         }
+        .contextMenu {
+            if !isReadOnly {
+                Button("Move to Brain Dump") {
+                    taskService.deescalate(item, on: day)
+                }
+            }
+        }
     }
 
     private var emptyRow: some View {
