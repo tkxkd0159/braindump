@@ -42,27 +42,31 @@ public struct ScheduleSection: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-            gridBody
-        }
-        .padding(24)
-        .background(Theme.Palette.surfaceContainerLowest)
-        .overlay(
-            Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1)
-        )
-        .shadow(color: Color(red: 0, green: 31/255, blue: 63/255, opacity: 0.03), radius: 30, x: 0, y: 10)
-        .sheet(item: $pending) { drop in
-            TimeBlockSheet(
-                initialStartMinute: drop.startMinute,
-                initialDurationMinutes: 60,
-                dayStartHour: dayStartHour,
-                dayEndHour: dayEndHour,
-                onConfirm: { startMinute, durationMinutes, colorIndex in
-                    confirmSchedule(itemID: drop.itemID, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex)
-                },
-                onCancel: { pending = nil }
+        // See Top3Section: guard against a detached `day` after Clear Data
+        // so we don't fault-resolve `schedule` / `items` in `gridBody`.
+        if day.modelContext != nil {
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                gridBody
+            }
+            .padding(24)
+            .background(Theme.Palette.surfaceContainerLowest)
+            .overlay(
+                Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1)
             )
+            .shadow(color: Color(red: 0, green: 31/255, blue: 63/255, opacity: 0.03), radius: 30, x: 0, y: 10)
+            .sheet(item: $pending) { drop in
+                TimeBlockSheet(
+                    initialStartMinute: drop.startMinute,
+                    initialDurationMinutes: 60,
+                    dayStartHour: dayStartHour,
+                    dayEndHour: dayEndHour,
+                    onConfirm: { startMinute, durationMinutes, colorIndex in
+                        confirmSchedule(itemID: drop.itemID, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex)
+                    },
+                    onCancel: { pending = nil }
+                )
+            }
         }
     }
 

@@ -27,31 +27,34 @@ public struct ScheduleBlockView: View {
     }
 
     public var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            Rectangle()
-                .fill(blockColor.opacity(0.65))
-                .frame(width: 4)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .top) {
-                    Text(entry.item?.title ?? "(deleted)")
-                        .font(Theme.Font.bodyLgSemibold)
-                        .strikethrough(entry.isCompleted)
-                        .foregroundStyle(foregroundColor.opacity(entry.isCompleted ? 0.6 : 1))
-                        .lineLimit(2)
-                    Spacer()
-                    trailingControl
+        // See Top3Section: skip if `entry` has been detached (Clear Data).
+        if entry.modelContext != nil {
+            HStack(alignment: .top, spacing: 0) {
+                Rectangle()
+                    .fill(blockColor.opacity(0.65))
+                    .frame(width: 4)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .top) {
+                        Text(entry.item?.title ?? "(deleted)")
+                            .font(Theme.Font.bodyLgSemibold)
+                            .strikethrough(entry.isCompleted)
+                            .foregroundStyle(foregroundColor.opacity(entry.isCompleted ? 0.6 : 1))
+                            .lineLimit(2)
+                        Spacer()
+                        trailingControl
+                    }
+                    Text(timeRange)
+                        .font(Theme.Font.caption)
+                        .foregroundStyle(foregroundColor.opacity(0.7))
                 }
-                Text(timeRange)
-                    .font(Theme.Font.caption)
-                    .foregroundStyle(foregroundColor.opacity(0.7))
+                .padding(16)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(blockColor)
+            .contentShape(Rectangle())
+            .onHover { hovered = $0 }
+            .onTapGesture { onTap?() }
         }
-        .background(blockColor)
-        .contentShape(Rectangle())
-        .onHover { hovered = $0 }
-        .onTapGesture { onTap?() }
     }
 
     private var blockColor: Color {

@@ -50,33 +50,37 @@ public struct BrainDumpSection: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            header
-            if let escalateError {
-                Text(escalateError)
-                    .font(Theme.Font.caption)
-                    .foregroundStyle(Theme.Palette.secondary)
-            }
-            ScrollView(.vertical, showsIndicators: true) {
-                VStack(spacing: 12) {
-                    ForEach(brainDumpItems, id: \.id) { item in
-                        row(for: item)
-                    }
-                    if !isReadOnly {
-                        addRow
-                    }
+        // See Top3Section: guard against a detached `day` after Clear Data
+        // so we don't fault-resolve `top3ItemIDs` / `items` / `schedule`.
+        if day.modelContext != nil {
+            VStack(alignment: .leading, spacing: 24) {
+                header
+                if let escalateError {
+                    Text(escalateError)
+                        .font(Theme.Font.caption)
+                        .foregroundStyle(Theme.Palette.secondary)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                ScrollView(.vertical, showsIndicators: true) {
+                    VStack(spacing: 12) {
+                        ForEach(brainDumpItems, id: \.id) { item in
+                            row(for: item)
+                        }
+                        if !isReadOnly {
+                            addRow
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 500)
             }
-            .frame(maxHeight: 500)
-        }
-        .modifier(DemoteDropZone(day: day, isReadOnly: isReadOnly))
-        .sheet(item: $pendingSwap) { swap in
-            Top3SwapSheet(
-                day: day,
-                incomingItemID: swap.incomingItemID,
-                dismiss: { pendingSwap = nil }
-            )
+            .modifier(DemoteDropZone(day: day, isReadOnly: isReadOnly))
+            .sheet(item: $pendingSwap) { swap in
+                Top3SwapSheet(
+                    day: day,
+                    incomingItemID: swap.incomingItemID,
+                    dismiss: { pendingSwap = nil }
+                )
+            }
         }
     }
 

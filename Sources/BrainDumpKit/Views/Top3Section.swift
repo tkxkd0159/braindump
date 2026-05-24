@@ -33,35 +33,41 @@ public struct Top3Section: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            header
-            VStack(spacing: 16) {
-                ForEach(Array(top3Items.enumerated()), id: \.offset) { idx, item in
-                    Top3SlotRow(
-                        day: day,
-                        isReadOnly: isReadOnly,
-                        index: idx,
-                        item: item,
-                        isHovered: item.map { hoveredID == $0.id } ?? false,
-                        isExpanded: item.map { expandedIDs.contains($0.id) } ?? false,
-                        openDetail: openDetail,
-                        onHoverChange: { inside in
-                            guard let item else { return }
-                            if inside {
-                                hoveredID = item.id
-                            } else if hoveredID == item.id {
-                                hoveredID = nil
+        // After Clear Data, SwiftData detaches this `day`'s backing before
+        // SwiftUI gets a chance to drop our stored reference. Short-circuit
+        // before touching any `@Attribute` (top3ItemIDs, items, schedule)
+        // — reading those would fault-resolve and crash.
+        if day.modelContext != nil {
+            VStack(alignment: .leading, spacing: 24) {
+                header
+                VStack(spacing: 16) {
+                    ForEach(Array(top3Items.enumerated()), id: \.offset) { idx, item in
+                        Top3SlotRow(
+                            day: day,
+                            isReadOnly: isReadOnly,
+                            index: idx,
+                            item: item,
+                            isHovered: item.map { hoveredID == $0.id } ?? false,
+                            isExpanded: item.map { expandedIDs.contains($0.id) } ?? false,
+                            openDetail: openDetail,
+                            onHoverChange: { inside in
+                                guard let item else { return }
+                                if inside {
+                                    hoveredID = item.id
+                                } else if hoveredID == item.id {
+                                    hoveredID = nil
+                                }
+                            },
+                            onTapToggle: {
+                                guard let item else { return }
+                                if expandedIDs.contains(item.id) {
+                                    expandedIDs.remove(item.id)
+                                } else {
+                                    expandedIDs.insert(item.id)
+                                }
                             }
-                        },
-                        onTapToggle: {
-                            guard let item else { return }
-                            if expandedIDs.contains(item.id) {
-                                expandedIDs.remove(item.id)
-                            } else {
-                                expandedIDs.insert(item.id)
-                            }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -120,9 +126,12 @@ struct Top3SlotRow: View {
     }
 
     var body: some View {
-        if let item {
+        // After Clear Data the parent Top3Section's guard short-circuits,
+        // but SwiftUI may still re-run THIS dirty body once before the
+        // teardown reaches us. Skip when either `day` or `item` is detached.
+        if day.modelContext != nil, let item, item.modelContext != nil {
             filledRow(item: item)
-        } else {
+        } else if item == nil {
             emptyRow
         }
     }
