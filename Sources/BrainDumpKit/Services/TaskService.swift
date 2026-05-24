@@ -119,12 +119,16 @@ public final class TaskService {
     /// Client-side search across non-backlog tasks.
     /// - keyword: matched (case-insensitive substring) against title and notes
     /// - tag: requires exact membership in item.tags
+    /// - completedOnly: when true (and `completedRange` is nil), keeps only items
+    ///   with at least one completed ScheduleEntry
     /// - completedRange: requires at least one ScheduleEntry on the item with
-    ///   `completedAt` within the range (uncompleted items never match this filter)
+    ///   `completedAt` within the range (uncompleted items never match this filter).
+    ///   A non-nil range implies `completedOnly`.
     public func searchTasks(
         keyword: String?,
         tag: String?,
-        completedRange: ClosedRange<Date>?
+        completedOnly: Bool = false,
+        completedRange: ClosedRange<Date>? = nil
     ) -> [TaskItem] {
         let descriptor = FetchDescriptor<TaskItem>()
         guard var items = try? context.fetch(descriptor) else { return [] }
@@ -146,6 +150,13 @@ public final class TaskService {
                     entry.item?.id == item.id
                         && entry.isCompleted
                         && entry.completedAt.map { completedRange.contains($0) } ?? false
+                }
+            }
+        } else if completedOnly {
+            items = items.filter { item in
+                guard let day = item.day else { return false }
+                return day.schedule.contains { entry in
+                    entry.item?.id == item.id && entry.isCompleted
                 }
             }
         }

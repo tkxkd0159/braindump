@@ -446,6 +446,45 @@ struct VisualSnapshotTests {
         )
     }
 
+    @Test
+    func captureCompletionFilterParentOff() throws {
+        Fonts.registerIfNeeded()
+        let view = CompletionDateFilterHarness(
+            useDateRange: false,
+            useSpecificDateRange: false
+        )
+        .padding(24)
+        .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 600, height: 120), filename: "snapshot-completion-filter-off.png")
+    }
+
+    @Test
+    func captureCompletionFilterParentOnSubOff() throws {
+        Fonts.registerIfNeeded()
+        let view = CompletionDateFilterHarness(
+            useDateRange: true,
+            useSpecificDateRange: false
+        )
+        .padding(24)
+        .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 600, height: 180), filename: "snapshot-completion-filter-parent-on.png")
+    }
+
+    @Test
+    func captureCompletionFilterBothOn() throws {
+        Fonts.registerIfNeeded()
+        let view = CompletionDateFilterHarness(
+            useDateRange: true,
+            useSpecificDateRange: true
+        )
+        .padding(24)
+        .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 600, height: 260), filename: "snapshot-completion-filter-both-on.png")
+    }
+
     // MARK: - Rendering
 
     private func renderViaHostingWindow<V: View>(_ view: V, size: NSSize, filename: String) {
@@ -542,5 +581,22 @@ private struct SidebarPreview: View {
                 }
             }
         )
+    }
+}
+
+private struct CompletionDateFilterHarness: View {
+    @State var useDateRange: Bool
+    @State var useSpecificDateRange: Bool
+    @State var fromDate: Date = TestDate.at(2026, 5, 17)
+    @State var toDate: Date = TestDate.at(2026, 5, 24)
+
+    var body: some View {
+        CompletionDateFilter(
+            useDateRange: $useDateRange,
+            useSpecificDateRange: $useSpecificDateRange,
+            fromDate: $fromDate,
+            toDate: $toDate
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

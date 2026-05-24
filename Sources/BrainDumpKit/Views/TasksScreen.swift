@@ -7,6 +7,7 @@ public struct TasksScreen: View {
     @State private var keyword: String = ""
     @State private var selectedTag: String?
     @State private var useDateRange: Bool = false
+    @State private var useSpecificDateRange: Bool = false
     @State private var fromDate: Date = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
     @State private var toDate: Date = Date()
     @State private var detailFocus: TaskDetailFocus?
@@ -17,7 +18,7 @@ public struct TasksScreen: View {
 
     private var results: [TaskItem] {
         let range: ClosedRange<Date>? = {
-            guard useDateRange else { return nil }
+            guard useDateRange, useSpecificDateRange else { return nil }
             let lo = fromDate.startOfLocalDay()
             let hi = Calendar.current.date(byAdding: .day, value: 1, to: toDate.startOfLocalDay())?.addingTimeInterval(-1) ?? toDate
             guard lo <= hi else { return nil }
@@ -26,6 +27,7 @@ public struct TasksScreen: View {
         return taskService.searchTasks(
             keyword: keyword.isEmpty ? nil : keyword,
             tag: selectedTag,
+            completedOnly: useDateRange,
             completedRange: range
         )
     }
@@ -106,23 +108,12 @@ public struct TasksScreen: View {
     }
 
     private var dateRangeFilter: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Toggle("Filter by completion date", isOn: $useDateRange)
-                .font(Theme.Font.labelMd)
-                .tracking(0.5)
-                .toggleStyle(.checkbox)
-                .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            if useDateRange {
-                HStack(spacing: 16) {
-                    DatePicker("From", selection: $fromDate, displayedComponents: [.date])
-                        .datePickerStyle(.field)
-                        .font(Theme.Font.bodyMd)
-                    DatePicker("To", selection: $toDate, displayedComponents: [.date])
-                        .datePickerStyle(.field)
-                        .font(Theme.Font.bodyMd)
-                }
-            }
-        }
+        CompletionDateFilter(
+            useDateRange: $useDateRange,
+            useSpecificDateRange: $useSpecificDateRange,
+            fromDate: $fromDate,
+            toDate: $toDate
+        )
     }
 
     private var resultList: some View {
@@ -220,4 +211,41 @@ public struct TasksScreen: View {
         f.dateFormat = "MMM d, h:mm a"
         return f
     }()
+}
+
+struct CompletionDateFilter: View {
+    @Binding var useDateRange: Bool
+    @Binding var useSpecificDateRange: Bool
+    @Binding var fromDate: Date
+    @Binding var toDate: Date
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Filter by completion date", isOn: $useDateRange)
+                .font(Theme.Font.labelMd)
+                .tracking(0.5)
+                .toggleStyle(.checkbox)
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            if useDateRange {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Specific date range", isOn: $useSpecificDateRange)
+                        .font(Theme.Font.labelMd)
+                        .tracking(0.5)
+                        .toggleStyle(.checkbox)
+                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                    if useSpecificDateRange {
+                        HStack(spacing: 16) {
+                            DatePicker("From", selection: $fromDate, displayedComponents: [.date])
+                                .datePickerStyle(.field)
+                                .font(Theme.Font.bodyMd)
+                            DatePicker("To", selection: $toDate, displayedComponents: [.date])
+                                .datePickerStyle(.field)
+                                .font(Theme.Font.bodyMd)
+                        }
+                    }
+                }
+                .padding(.leading, 18)
+            }
+        }
+    }
 }

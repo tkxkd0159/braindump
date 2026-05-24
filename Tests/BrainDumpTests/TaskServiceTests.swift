@@ -312,8 +312,8 @@ import SwiftData
     let entry = try scheduleService.schedule(done, on: today, startMinute: 9 * 60, durationMinutes: 60)
     scheduleService.setCompleted(entry, true)
 
-    let lower = TestDate.at(2026, 5, 22, hour: 0)
-    let upper = TestDate.at(2026, 5, 22, hour: 23, minute: 59)
+    let lower = Date.now.addingTimeInterval(-60)
+    let upper = Date.now.addingTimeInterval(60)
     let results = taskService.searchTasks(keyword: nil, tag: nil, completedRange: lower...upper)
     #expect(results.map(\.id) == [done.id])
 }
@@ -408,4 +408,63 @@ import SwiftData
     taskService.delete(a)
 
     #expect(today.top3ItemIDs.isEmpty)
+}
+
+@MainActor
+@Test func searchCompletedOnlyReturnsAllCompletedRegardlessOfDate() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let scheduleService = ScheduleService(context: context)
+    let early = dayService.day(for: TestDate.at(2026, 1, 5))
+    let late = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let oldDone = taskService.addBrainDumpItem(title: "Old done", on: early)
+    let oldEntry = try scheduleService.schedule(oldDone, on: early, startMinute: 9 * 60, durationMinutes: 60)
+    scheduleService.setCompleted(oldEntry, true)
+
+    let newDone = taskService.addBrainDumpItem(title: "New done", on: late)
+    let newEntry = try scheduleService.schedule(newDone, on: late, startMinute: 9 * 60, durationMinutes: 60)
+    scheduleService.setCompleted(newEntry, true)
+
+    let results = taskService.searchTasks(keyword: nil, tag: nil, completedOnly: true, completedRange: nil)
+    #expect(Set(results.map(\.id)) == Set([oldDone.id, newDone.id]))
+}
+
+@MainActor
+@Test func searchCompletedOnlyExcludesUncompletedItems() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let scheduleService = ScheduleService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let done = taskService.addBrainDumpItem(title: "Done", on: today)
+    let doneEntry = try scheduleService.schedule(done, on: today, startMinute: 9 * 60, durationMinutes: 60)
+    scheduleService.setCompleted(doneEntry, true)
+
+    let open = taskService.addBrainDumpItem(title: "Open", on: today)
+    _ = try scheduleService.schedule(open, on: today, startMinute: 10 * 60, durationMinutes: 60)
+
+    _ = taskService.addBrainDumpItem(title: "Unscheduled", on: today)
+
+    let results = taskService.searchTasks(keyword: nil, tag: nil, completedOnly: true, completedRange: nil)
+    #expect(results.map(\.id) == [done.id])
+}
+
+@MainActor
+@Test func searchCompletedOnlyDefaultPreservesAllTasksBehavior() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let scheduleService = ScheduleService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let done = taskService.addBrainDumpItem(title: "Done", on: today)
+    let doneEntry = try scheduleService.schedule(done, on: today, startMinute: 9 * 60, durationMinutes: 60)
+    scheduleService.setCompleted(doneEntry, true)
+    let open = taskService.addBrainDumpItem(title: "Open", on: today)
+
+    let results = taskService.searchTasks(keyword: nil, tag: nil, completedRange: nil)
+    #expect(Set(results.map(\.id)) == Set([done.id, open.id]))
 }
