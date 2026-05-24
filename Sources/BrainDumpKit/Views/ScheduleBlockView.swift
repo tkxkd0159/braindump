@@ -91,7 +91,7 @@ public struct ScheduleBlockView: View {
                 }
             }
             Button(action: { if !isReadOnly { onToggleComplete() } }) {
-                Image(systemName: entry.isCompleted ? "checkmark.square.fill" : "lock.fill")
+                Image(systemName: entry.isCompleted ? "checkmark.square.fill" : "square")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(foregroundColor.opacity(entry.isCompleted ? 1 : 0.85))
             }

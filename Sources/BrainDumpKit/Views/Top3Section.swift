@@ -142,13 +142,6 @@ struct Top3SlotRow: View {
         let hasDetails = !item.notes.isEmpty || !item.tags.isEmpty
 
         return HStack(alignment: .top, spacing: 16) {
-            SquareCheckbox(isOn: completed) {
-                guard !isReadOnly, let entry = scheduled else { return }
-                ScheduleService(context: context).setCompleted(entry, !entry.isCompleted)
-            }
-            .padding(.top, 2)
-            .disabled(isReadOnly || scheduled == nil)
-
             VStack(alignment: .leading, spacing: 6) {
                 if let scheduled {
                     HStack(spacing: 6) {
@@ -215,9 +208,6 @@ struct Top3SlotRow: View {
 
     private var emptyRow: some View {
         HStack(alignment: .top, spacing: 16) {
-            SquareCheckbox(isOn: false, action: {})
-                .padding(.top, 2)
-                .disabled(true)
             Text("Priority \(index + 1)")
                 .font(Theme.Font.bodyLg)
                 .foregroundStyle(Theme.Palette.outlineVariant)
@@ -269,33 +259,6 @@ struct Top3SlotRow: View {
             svc.moveToTop3Slot(item, at: idx, on: day)
         }
         return true
-    }
-}
-
-struct SquareCheckbox: View {
-    let isOn: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            ZStack {
-                Rectangle()
-                    .strokeBorder(
-                        isOn ? Theme.Palette.primary : Theme.Palette.outline,
-                        lineWidth: 1.5
-                    )
-                    .background(
-                        Rectangle().fill(isOn ? Theme.Palette.primary : Color.clear)
-                    )
-                if isOn {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Theme.Palette.onPrimary)
-                }
-            }
-            .frame(width: 20, height: 20)
-        }
-        .buttonStyle(.plain)
     }
 }
 

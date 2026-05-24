@@ -120,13 +120,6 @@ public struct BrainDumpSection: View {
         let hasDetails = !item.notes.isEmpty || !item.tags.isEmpty
 
         return HStack(alignment: .top, spacing: 14) {
-            SquareCheckbox(isOn: completed) {
-                guard !isReadOnly, let entry = scheduled else { return }
-                ScheduleService(context: context).setCompleted(entry, !entry.isCompleted)
-            }
-            .padding(.top, 2)
-            .disabled(isReadOnly || scheduled == nil)
-
             VStack(alignment: .leading, spacing: 6) {
                 titleView(for: item, completed: completed)
                 if !item.tags.isEmpty {
@@ -222,8 +215,6 @@ public struct BrainDumpSection: View {
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 14) {
-                SquareCheckbox(isOn: false, action: {})
-                    .disabled(true)
                 TextField("Add new task…", text: $newTitle)
                     .textFieldStyle(.plain)
                     .font(Theme.Font.bodyMd)
@@ -266,7 +257,6 @@ public struct BrainDumpSection: View {
                                 newTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
-                .padding(.leading, 34)
             }
         }
         .padding(14)
