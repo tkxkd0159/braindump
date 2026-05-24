@@ -248,7 +248,17 @@ struct Top3SlotRow: View {
         if let oldIndex = day.top3ItemIDs.firstIndex(of: item.id), oldIndex == index {
             return false
         }
-        taskService.moveToTop3Slot(item, at: index, on: day)
+        // Defer the mutation by one runloop tick: when the source row lives
+        // in another section (brain dump), removing it from that ForEach
+        // mid-drop-finalize makes AppKit's NSDraggingSession spin for a few
+        // seconds tearing down the vanished source. Letting the drop handler
+        // return first gives the drag bridge a chance to finish cleanly.
+        let day = self.day
+        let svc = taskService
+        let idx = index
+        DispatchQueue.main.async {
+            svc.moveToTop3Slot(item, at: idx, on: day)
+        }
         return true
     }
 }

@@ -1,11 +1,19 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 public struct BacklogScreen: View {
     @Environment(\.modelContext) private var context
     @Bindable var state: AppState
 
-    @State private var newTitle: String = ""
+    // Reactive query: SwiftData tracks the result and re-renders the view only
+    // when matching rows change, so re-evaluating `body` (e.g. for sheet
+    // open/close, hover) no longer triggers a `FetchDescriptor` round-trip.
+    @Query(
+        filter: #Predicate<TaskItem> { $0.isBacklog == true },
+        sort: \TaskItem.createdAt, order: .reverse
+    )
+    private var backlogItems: [TaskItem]
+
     @State private var hoveredID: UUID?
     @State private var detailFocus: TaskDetailFocus?
 
@@ -19,7 +27,6 @@ public struct BacklogScreen: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             header
-            addRow
             list
         }
         .sheet(item: $detailFocus) { focus in
@@ -28,40 +35,36 @@ public struct BacklogScreen: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Backlog")
-                .font(Theme.Font.headlineLg)
-                .tracking(-0.3)
-                .foregroundStyle(Theme.Palette.primary)
-            Text("Tasks parked for later. Promote one to today's brain dump when you're ready.")
-                .font(Theme.Font.bodyMd)
-                .foregroundStyle(Theme.Palette.onSurfaceVariant)
-        }
-    }
-
-    private var addRow: some View {
-        HStack(spacing: 12) {
-            TextField("Add to backlog…", text: $newTitle)
-                .textFieldStyle(.plain)
-                .font(Theme.Font.bodyMd)
-                .padding(.horizontal, 14)
-                .frame(height: 38)
-                .background(Theme.Palette.surfaceContainerLowest)
-                .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
-                .onSubmit(submitNew)
-            Button("Add", action: submitNew)
-                .buttonStyle(.plain)
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Backlog")
+                    .font(Theme.Font.headlineLg)
+                    .tracking(-0.3)
+                    .foregroundStyle(Theme.Palette.primary)
+                Text("Tasks parked for later. Promote one to today's brain dump when you're ready.")
+                    .font(Theme.Font.bodyMd)
+                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            }
+            Spacer()
+            Button(action: { detailFocus = .createBacklog }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("Add Task")
+                }
                 .font(Theme.Font.labelMd)
                 .padding(.horizontal, 18)
                 .frame(height: 38)
                 .foregroundStyle(Theme.Palette.onPrimary)
                 .background(Theme.Palette.primary)
-                .disabled(newTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .buttonStyle(.plain)
+            .help("Add a new backlog task")
         }
     }
 
     private var list: some View {
-        let items = backlogService.listBacklog()
+        let items = backlogItems
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("\(items.count) ITEM\(items.count == 1 ? "" : "S")")
@@ -131,7 +134,8 @@ public struct BacklogScreen: View {
                         .font(.system(size: 12, weight: .semibold))
                         .frame(width: 30, height: 30)
                         .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                        .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
+                        .overlay(
+                            Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 .opacity(hovered ? 1 : 0)
@@ -143,18 +147,13 @@ public struct BacklogScreen: View {
         .background(Theme.Palette.surfaceContainerLowest)
         .overlay(
             Rectangle()
-                .strokeBorder(hovered ? Theme.Palette.primary : Theme.Palette.outlineVariant, lineWidth: 1)
+                .strokeBorder(
+                    hovered ? Theme.Palette.primary : Theme.Palette.outlineVariant, lineWidth: 1)
         )
         .contentShape(Rectangle())
-        .onHover { inside in hoveredID = inside ? item.id : (hoveredID == item.id ? nil : hoveredID) }
+        .onHover { inside in hoveredID = inside ? item.id : (hoveredID == item.id ? nil : hoveredID)
+        }
         .onTapGesture { detailFocus = TaskDetailFocus(item: item, entry: nil) }
-    }
-
-    private func submitNew() {
-        let trimmed = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        _ = backlogService.addBacklogItem(title: trimmed)
-        newTitle = ""
     }
 
     private func promote(_ item: TaskItem) {

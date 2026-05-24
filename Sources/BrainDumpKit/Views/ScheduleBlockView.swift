@@ -5,6 +5,7 @@ public struct ScheduleBlockView: View {
     let isReadOnly: Bool
     let onToggleComplete: () -> Void
     let onRemove: () -> Void
+    let onEdit: (() -> Void)?
     let onTap: (() -> Void)?
 
     @State private var hovered: Bool = false
@@ -14,12 +15,14 @@ public struct ScheduleBlockView: View {
         isReadOnly: Bool,
         onToggleComplete: @escaping () -> Void,
         onRemove: @escaping () -> Void,
+        onEdit: (() -> Void)? = nil,
         onTap: (() -> Void)? = nil
     ) {
         self.entry = entry
         self.isReadOnly = isReadOnly
         self.onToggleComplete = onToggleComplete
         self.onRemove = onRemove
+        self.onEdit = onEdit
         self.onTap = onTap
     }
 
@@ -72,6 +75,17 @@ public struct ScheduleBlockView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Remove from schedule")
+                if let onEdit {
+                    Button(action: onEdit) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(foregroundColor.opacity(0.85))
+                            .frame(width: 24, height: 22)
+                            .background(blockColor.opacity(0.65))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Edit task")
+                }
             }
             Button(action: { if !isReadOnly { onToggleComplete() } }) {
                 Image(systemName: entry.isCompleted ? "checkmark.square.fill" : "lock.fill")

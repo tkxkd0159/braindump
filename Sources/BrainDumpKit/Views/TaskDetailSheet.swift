@@ -3,12 +3,15 @@ import SwiftUI
 
 public enum TaskDetailFocus: Identifiable {
     case create(day: Day)
+    case createBacklog
     case edit(item: TaskItem, entry: ScheduleEntry?, startInEditMode: Bool)
 
     public var id: String {
         switch self {
         case .create(let day):
             return "create-\(day.persistentModelID.hashValue)"
+        case .createBacklog:
+            return "create-backlog"
         case .edit(let item, _, _):
             return "edit-\(item.id.uuidString)"
         }
@@ -37,13 +40,19 @@ public struct TaskDetailSheet: View {
     @State private var scheduleEnabled: Bool
     @State private var errorText: String?
 
+    /// Cached tag suggestions. Fetched once on first appearance — otherwise
+    /// every keystroke in the title/notes fields would re-run `allTags()`
+    /// (a full `TaskItem` table scan + Set+Sort) via `tagsField`'s body.
+    @State private var cachedKnownTags: [String] = []
+    @State private var didLoadTags: Bool = false
+
     private let startInEditModeAtInit: Bool
 
     public init(focus: TaskDetailFocus, dismiss: @escaping () -> Void) {
         self.focus = focus
         self.dismiss = dismiss
         switch focus {
-        case .create:
+        case .create, .createBacklog:
             _isEditing = State(initialValue: true)
             _title = State(initialValue: "")
             _notes = State(initialValue: "")
@@ -86,12 +95,20 @@ public struct TaskDetailSheet: View {
     private var focusDay: Day? {
         switch focus {
         case .create(let day): return day
+        case .createBacklog: return nil
         case .edit(let item, _, _): return item.day
         }
     }
 
     private var isCreateMode: Bool {
-        if case .create = focus { return true }
+        switch focus {
+        case .create, .createBacklog: return true
+        case .edit: return false
+        }
+    }
+
+    private var isBacklogCreate: Bool {
+        if case .createBacklog = focus { return true }
         return false
     }
 
@@ -106,6 +123,11 @@ public struct TaskDetailSheet: View {
         .padding(28)
         .frame(width: 480)
         .background(Theme.Palette.surfaceContainerLowest)
+        .onAppear {
+            guard !didLoadTags else { return }
+            cachedKnownTags = TaskService(context: context).allTags()
+            didLoadTags = true
+        }
     }
 
     // MARK: - Edit mode
@@ -136,7 +158,9 @@ public struct TaskDetailSheet: View {
 
     @ViewBuilder
     private var scheduleSection: some View {
-        if !isCreateMode, focusEntry != nil {
+        if isBacklogCreate {
+            EmptyView()
+        } else if !isCreateMode, focusEntry != nil {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Time Block")
                     .font(Theme.Font.tinyLabel)
@@ -209,7 +233,7 @@ public struct TaskDetailSheet: View {
             TagInputField(
                 tags: $tags,
                 draft: $newTagDraft,
-                allKnownTags: TaskService(context: context).allTags()
+                allKnownTags: cachedKnownTags
             )
         }
     }
@@ -275,6 +299,18 @@ public struct TaskDetailSheet: View {
                 tags: tags,
                 on: day
             )
+        case .createBacklog:
+            guard !trimmedTitle.isEmpty else {
+                errorText = "Title is required"
+                return
+            }
+            _ = BacklogService(context: context).addBacklogItem(
+                title: trimmedTitle,
+                notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
+                tags: tags
+            )
+            dismiss()
+            return
         case .edit(let existing, _, _):
             item = existing
             if !trimmedTitle.isEmpty, trimmedTitle != existing.title {
@@ -392,15 +428,6 @@ public struct TaskDetailSheet: View {
                 .textCase(.uppercase)
                 .foregroundStyle(Theme.Palette.primary)
             Spacer()
-            Button(action: { isEditing = true }) {
-                Image(systemName: "pencil")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(Theme.Palette.onSurface)
-                    .frame(width: 30, height: 30)
-                    .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            .help("Edit task")
         }
     }
 

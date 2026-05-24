@@ -103,12 +103,14 @@ public final class TaskService {
         try? context.save()
     }
 
-    /// All distinct tags across non-backlog tasks, sorted alphabetically.
+    /// All distinct tags across every task (brain-dump and backlog), sorted
+    /// alphabetically. Tags are a global vocabulary so suggestions surface
+    /// regardless of where a tag was first attached.
     public func allTags() -> [String] {
         let descriptor = FetchDescriptor<TaskItem>()
         guard let items = try? context.fetch(descriptor) else { return [] }
         var set = Set<String>()
-        for item in items where !item.isBacklog {
+        for item in items {
             for tag in item.tags { set.insert(tag) }
         }
         return set.sorted()

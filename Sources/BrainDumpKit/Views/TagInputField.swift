@@ -16,7 +16,7 @@ struct TagInputField: View {
         tags: Binding<[String]>,
         draft: Binding<String>,
         allKnownTags: [String],
-        placeholder: String = "Tag",
+        placeholder: String = "",
         isCompact: Bool = false
     ) {
         self._tags = tags

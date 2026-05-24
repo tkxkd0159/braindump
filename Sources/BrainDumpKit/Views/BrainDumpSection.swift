@@ -14,9 +14,15 @@ public struct BrainDumpSection: View {
     @State private var hoveredID: UUID?
     @State private var expandedIDs: Set<UUID> = []
     @State private var escalateError: String?
+    @State private var pendingSwap: PendingSwap?
     @FocusState private var addFocus: AddFieldFocus?
 
     private enum AddFieldFocus: Hashable { case title, notes }
+
+    struct PendingSwap: Identifiable {
+        let id = UUID()
+        let incomingItemID: UUID
+    }
 
     public init(
         day: Day,
@@ -65,6 +71,13 @@ public struct BrainDumpSection: View {
             .frame(maxHeight: 500)
         }
         .modifier(DemoteDropZone(day: day, isReadOnly: isReadOnly))
+        .sheet(item: $pendingSwap) { swap in
+            Top3SwapSheet(
+                day: day,
+                incomingItemID: swap.incomingItemID,
+                dismiss: { pendingSwap = nil }
+            )
+        }
     }
 
     private var header: some View {
@@ -171,10 +184,14 @@ public struct BrainDumpSection: View {
                         try taskService.escalate(item, on: day)
                         escalateError = nil
                     } catch TodoError.top3Full {
-                        escalateError = "Top 3 is full"
+                        escalateError = nil
+                        pendingSwap = PendingSwap(incomingItemID: item.id)
                     } catch {
                         escalateError = "Could not move"
                     }
+                }
+                Button("Move to Backlog") {
+                    BacklogService(context: context).moveToBacklog(item)
                 }
             }
         }
@@ -295,6 +312,115 @@ public struct BrainDumpSection: View {
     }
 }
 
+/// Sheet shown when escalating an item to Top 3 but the slot is full.
+/// Lets the user pick which existing priority to swap out — the chosen
+/// priority falls back to the brain dump and the incoming item takes
+/// its slot.
+struct Top3SwapSheet: View {
+    @Environment(\.modelContext) private var context
+    let day: Day
+    let incomingItemID: UUID
+    let dismiss: () -> Void
+
+    private var taskService: TaskService { TaskService(context: context) }
+
+    private var incomingItem: TaskItem? {
+        day.items.first { $0.id == incomingItemID }
+    }
+
+    private var priorityItems: [(index: Int, item: TaskItem)] {
+        day.top3ItemIDs.enumerated().compactMap { (idx, id) in
+            guard let item = day.items.first(where: { $0.id == id }) else { return nil }
+            return (idx, item)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            header
+            if let incoming = incomingItem {
+                Text("Top 3 is full. Choose a priority to swap with:")
+                    .font(Theme.Font.bodyMd)
+                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                Text(incoming.title)
+                    .font(Theme.Font.bodyLgSemibold)
+                    .foregroundStyle(Theme.Palette.onSurface)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.Palette.surfaceContainer)
+                    .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
+            }
+            VStack(spacing: 8) {
+                ForEach(priorityItems, id: \.item.id) { entry in
+                    swapRow(index: entry.index, item: entry.item)
+                }
+            }
+            footer
+        }
+        .padding(28)
+        .frame(width: 480)
+        .background(Theme.Palette.surfaceContainerLowest)
+    }
+
+    private var header: some View {
+        Text("Swap Priority")
+            .font(Theme.Font.tinyLabel)
+            .tracking(1.5)
+            .textCase(.uppercase)
+            .foregroundStyle(Theme.Palette.primary)
+    }
+
+    private func swapRow(index: Int, item: TaskItem) -> some View {
+        Button(action: { performSwap(at: index) }) {
+            HStack(spacing: 12) {
+                Text("\(index + 1)")
+                    .font(Theme.Font.labelMd)
+                    .tracking(0.5)
+                    .foregroundStyle(Theme.Palette.primary)
+                    .frame(width: 24, height: 24)
+                    .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
+                Text(item.title)
+                    .font(Theme.Font.bodyMd)
+                    .foregroundStyle(Theme.Palette.onSurface)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.left.arrow.right")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.Palette.surfaceContainerLowest)
+            .overlay(Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var footer: some View {
+        HStack {
+            Spacer()
+            Button("Cancel", action: dismiss)
+                .buttonStyle(.plain)
+                .font(Theme.Font.labelMd)
+                .padding(.horizontal, 18)
+                .frame(height: 34)
+                .foregroundStyle(Theme.Palette.primary)
+                .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
+                .keyboardShortcut(.cancelAction)
+        }
+    }
+
+    private func performSwap(at index: Int) {
+        guard let incoming = incomingItem else {
+            dismiss()
+            return
+        }
+        taskService.moveToTop3Slot(incoming, at: index, on: day)
+        dismiss()
+    }
+}
+
 /// Owns the section-level drop target that demotes a Top3 item back into
 /// the brain dump. State lives here so the targeted-border opacity flip
 /// doesn't re-evaluate the section's ScrollView (and every row inside it)
@@ -304,19 +430,11 @@ struct DemoteDropZone: ViewModifier {
     let day: Day
     let isReadOnly: Bool
 
-    @State private var isDropTargeted: Bool = false
     @State private var wasTargeted: Bool = false
 
     func body(content: Content) -> some View {
         content
             .contentShape(Rectangle())
-            .overlay(
-                Rectangle()
-                    .strokeBorder(Theme.Palette.primary, lineWidth: 1)
-                    .opacity(isDropTargeted ? 1 : 0)
-                    .padding(-4)
-                    .allowsHitTesting(false)
-            )
             .dropDestination(for: TaskItemDragPayload.self) { payloads, _ in
                 defer { wasTargeted = false }
                 // Reject the synthetic drop SwiftUI delivers when the user
@@ -325,9 +443,9 @@ struct DemoteDropZone: ViewModifier {
                 guard wasTargeted else { return false }
                 return handleDrop(payloads: payloads)
             } isTargeted: { targeted in
-                let active = targeted && !isReadOnly && !day.top3ItemIDs.isEmpty
-                isDropTargeted = active
-                if active { wasTargeted = true }
+                if targeted && !isReadOnly && !day.top3ItemIDs.isEmpty {
+                    wasTargeted = true
+                }
             }
     }
 
@@ -335,7 +453,13 @@ struct DemoteDropZone: ViewModifier {
         guard !isReadOnly, let payload = payloads.first else { return false }
         guard day.top3ItemIDs.contains(payload.id) else { return false }
         guard let item = day.items.first(where: { $0.id == payload.id }) else { return false }
-        TaskService(context: context).deescalate(item, on: day)
+        // Match the escalate path: defer the mutation so the drag bridge
+        // can finish tearing down before the source row's view tree shifts.
+        let day = self.day
+        let context = self.context
+        DispatchQueue.main.async {
+            TaskService(context: context).deescalate(item, on: day)
+        }
         return true
     }
 }

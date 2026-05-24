@@ -24,7 +24,7 @@ struct BrainDumpApp: App {
                 .tint(Theme.Palette.primary)
         }
         .modelContainer(container)
-        .windowStyle(.titleBar)
+        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
     }
 }

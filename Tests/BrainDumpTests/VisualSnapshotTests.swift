@@ -284,6 +284,101 @@ struct VisualSnapshotTests {
         )
     }
 
+    @Test
+    func captureBacklogScreenWithAddTaskButton() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let backlog = BacklogService(context: context)
+        _ = backlog.addBacklogItem(title: "Write conference abstract", notes: "Due in two weeks", tags: ["writing"])
+        _ = backlog.addBacklogItem(title: "Update Zotero collections")
+        _ = backlog.addBacklogItem(title: "Order reference texts")
+
+        let state = AppState(
+            context: context,
+            now: { TestDate.at(2026, 5, 23) },
+            wiseSaying: WiseSaying(quote: "x", author: "y")
+        )
+        let view = BacklogScreen(state: state)
+            .environment(\.modelContext, context)
+            .padding(.horizontal, 64)
+            .padding(.top, 36)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1000, height: 700), filename: "snapshot-backlog-add-button.png")
+    }
+
+    @Test
+    func captureTaskDetailSheetCreateBacklog() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let view = TaskDetailSheet(focus: .createBacklog, dismiss: {})
+            .environment(\.modelContext, context)
+            .padding(40)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: 600, height: 560),
+            filename: "snapshot-task-detail-create-backlog.png"
+        )
+    }
+
+    @Test
+    func captureScheduleBlockWithEditButton() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let task = TaskService(context: context).addBrainDumpItem(
+            title: "Finalize manuscript revision", on: day
+        )
+        let entry = try ScheduleService(context: context).schedule(
+            task, on: day, startMinute: 9 * 60, durationMinutes: 90, colorIndex: 1
+        )
+        let view = ScheduleBlockView(
+            entry: entry,
+            isReadOnly: false,
+            onToggleComplete: {},
+            onRemove: {},
+            onEdit: {}
+        )
+        .frame(height: 150)
+        .padding(40)
+        .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: 600, height: 240),
+            filename: "snapshot-schedule-block-with-edit.png"
+        )
+    }
+
+    @Test
+    func captureTop3SwapSheet() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        let a = taskService.addBrainDumpItem(title: "Finalize manuscript revision", on: day)
+        let b = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
+        let c = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
+        let incoming = taskService.addBrainDumpItem(title: "Review reviewer comments", on: day)
+        try taskService.escalate(a, on: day)
+        try taskService.escalate(b, on: day)
+        try taskService.escalate(c, on: day)
+
+        let view = Top3SwapSheet(
+            day: day,
+            incomingItemID: incoming.id,
+            dismiss: {}
+        )
+        .environment(\.modelContext, context)
+        .padding(40)
+        .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: 600, height: 540),
+            filename: "snapshot-top3-swap-sheet.png"
+        )
+    }
+
     /// Schedule slots are drop-only after removing the inline task creator —
     /// empty rows should render as plain dividers with no text field or
     /// "Plan activity…" prompt.

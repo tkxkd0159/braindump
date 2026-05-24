@@ -257,6 +257,20 @@ import SwiftData
 }
 
 @MainActor
+@Test func allTagsIncludesBacklogTags() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let backlogService = BacklogService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+    let a = taskService.addBrainDumpItem(title: "A", on: today)
+    taskService.updateTags(a, tags: ["writing"])
+    _ = backlogService.addBacklogItem(title: "B", tags: ["reading", "writing"])
+
+    #expect(taskService.allTags() == ["reading", "writing"])
+}
+
+@MainActor
 @Test func searchByKeywordMatchesTitleAndNotes() throws {
     let context = try InMemoryStore.makeContext()
     let dayService = DayService(context: context)

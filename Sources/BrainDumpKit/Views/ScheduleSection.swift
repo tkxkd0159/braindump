@@ -105,6 +105,11 @@ public struct ScheduleSection: View {
                         isReadOnly: isReadOnly,
                         onToggleComplete: { scheduleService.setCompleted(entryRef, !entryRef.isCompleted) },
                         onRemove: { scheduleService.unschedule(entryRef) },
+                        onEdit: isReadOnly ? nil : {
+                            if let item = entryRef.item {
+                                openDetail?(TaskDetailFocus(item: item, entry: entryRef, startInEditMode: true))
+                            }
+                        },
                         onTap: {
                             if let item = entryRef.item {
                                 openDetail?(TaskDetailFocus(item: item, entry: entryRef, startInEditMode: false))

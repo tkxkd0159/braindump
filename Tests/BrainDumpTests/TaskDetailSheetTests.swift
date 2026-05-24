@@ -59,6 +59,13 @@ import SwiftUI
     // Smoke: each focus can be constructed and passed to a sheet without crashing
     // the initializer. Body evaluation is exercised by the snapshot tests.
     _ = TaskDetailSheet(focus: .create(day: day), dismiss: {})
+    _ = TaskDetailSheet(focus: .createBacklog, dismiss: {})
     _ = TaskDetailSheet(focus: .edit(item: item, entry: entry, startInEditMode: true), dismiss: {})
     _ = TaskDetailSheet(focus: .edit(item: item, entry: nil, startInEditMode: true), dismiss: {})
+}
+
+@MainActor
+@Test func taskDetailFocus_createBacklog_idIsStable() throws {
+    let focus = TaskDetailFocus.createBacklog
+    #expect(focus.id == "create-backlog")
 }
