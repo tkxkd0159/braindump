@@ -284,6 +284,48 @@ struct VisualSnapshotTests {
         )
     }
 
+    /// Schedule slots are drop-only after removing the inline task creator —
+    /// empty rows should render as plain dividers with no text field or
+    /// "Plan activity…" prompt.
+    @Test
+    func captureScheduleSectionEmptyHasNoInlineCreator() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+
+        let view = ScheduleSection(day: day, isReadOnly: false, dayStartHour: 8, dayEndHour: 12)
+            .environment(\.modelContext, context)
+            .padding(24)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: 700, height: 600),
+            filename: "snapshot-schedule-empty-no-inline-creator.png"
+        )
+    }
+
+    /// Captures the General settings pane scrolled to show the new
+    /// "Clear Data" block beneath the day time range pickers.
+    @Test
+    func captureSettingsSheetClearDataBlock() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+        let state = AppState(
+            context: context,
+            now: { TestDate.at(2026, 5, 22) },
+            wiseSaying: WiseSaying(quote: "x", author: "y"),
+            defaults: defaults
+        )
+        let view = SettingsSheet(state: state, dismiss: {})
+            .environment(\.modelContext, context)
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: 820, height: 540),
+            filename: "snapshot-settings-clear-data.png"
+        )
+    }
+
     @Test
     func captureTaskDetailSheetEdit() throws {
         Fonts.registerIfNeeded()

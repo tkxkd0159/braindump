@@ -90,4 +90,13 @@ public final class AppState {
         dayEndHour = endHour
         return true
     }
+
+    /// Wipes all user data (days, tasks, schedule entries, backlog) and snaps
+    /// navigation back to Today. Preferences like day bounds are preserved —
+    /// "clear data" targets content, not settings.
+    public func clearAllData() {
+        dayService.clearAllData()
+        selectedDate = todayDate
+        selectedDestination = .today
+    }
 }

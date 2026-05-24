@@ -167,6 +167,38 @@ import SwiftData
 }
 
 @MainActor
+@Test func clearAllDataRemovesEveryEntity() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let backlogService = BacklogService(context: context)
+    let scheduleService = ScheduleService(context: context)
+    let day = dayService.day(for: TestDate.at(2026, 5, 22))
+    let other = dayService.day(for: TestDate.at(2026, 5, 21))
+    let item = taskService.addBrainDumpItem(title: "Today", on: day)
+    _ = taskService.addBrainDumpItem(title: "Yesterday", on: other)
+    _ = backlogService.addBacklogItem(title: "Someday")
+    _ = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 60)
+
+    dayService.clearAllData()
+
+    #expect((try context.fetch(FetchDescriptor<Day>())).isEmpty)
+    #expect((try context.fetch(FetchDescriptor<TaskItem>())).isEmpty)
+    #expect((try context.fetch(FetchDescriptor<ScheduleEntry>())).isEmpty)
+}
+
+@MainActor
+@Test func clearAllDataIsIdempotentOnEmptyStore() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+
+    dayService.clearAllData()
+    dayService.clearAllData()
+
+    #expect((try context.fetch(FetchDescriptor<Day>())).isEmpty)
+}
+
+@MainActor
 @Test func rolloverKeepsTop3EntryForCompletedItem() throws {
     let context = try InMemoryStore.makeContext()
     let dayService = DayService(context: context)

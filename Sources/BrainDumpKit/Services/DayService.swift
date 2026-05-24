@@ -32,6 +32,19 @@ public final class DayService {
         day.items.count
     }
 
+    /// Wipes every Day, TaskItem (including backlog), and ScheduleEntry from
+    /// the store. The explicit per-table pass also removes backlog items,
+    /// which have no Day parent to cascade through.
+    public func clearAllData() {
+        let entries = (try? context.fetch(FetchDescriptor<ScheduleEntry>())) ?? []
+        for entry in entries { context.delete(entry) }
+        let items = (try? context.fetch(FetchDescriptor<TaskItem>())) ?? []
+        for item in items { context.delete(item) }
+        let days = (try? context.fetch(FetchDescriptor<Day>())) ?? []
+        for day in days { context.delete(day) }
+        try? context.save()
+    }
+
     public func rollover(now: Date) {
         let today = now.startOfLocalDay()
         let todayDay = day(for: today)

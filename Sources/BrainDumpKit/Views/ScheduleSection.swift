@@ -34,7 +34,6 @@ public struct ScheduleSection: View {
     @State private var errorText: String?
 
     private var scheduleService: ScheduleService { ScheduleService(context: context) }
-    private var taskService: TaskService { TaskService(context: context) }
 
     private struct PendingDrop: Identifiable {
         let id = UUID()
@@ -193,28 +192,9 @@ public struct ScheduleSection: View {
                 .fill(Theme.Palette.surfaceContainerLow.opacity(0.5))
         } else {
             ScheduleSlot(
-                hour: hour,
-                isTopOfHour: isTopOfHour,
                 isReadOnly: isReadOnly,
-                onSubmit: { title in submitInline(title: title, startMinute: slotStartMinute) },
                 onDrop: { itemID in pending = PendingDrop(startMinute: slotStartMinute, itemID: itemID) }
             )
-        }
-    }
-
-    private func submitInline(title: String, startMinute: Int) {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !isReadOnly else { return }
-        let item = taskService.addBrainDumpItem(title: trimmed, on: day)
-        do {
-            _ = try scheduleService.schedule(item, on: day, startMinute: startMinute, durationMinutes: 60)
-            errorText = nil
-        } catch TodoError.scheduleConflict {
-            errorText = "Conflicts with another block"
-        } catch TodoError.scheduleOutOfRange {
-            errorText = "Out of range"
-        } catch {
-            errorText = "Could not schedule"
         }
     }
 
@@ -252,58 +232,30 @@ public struct ScheduleSection: View {
 }
 
 private struct ScheduleSlot: View {
-    let hour: Int
-    let isTopOfHour: Bool
     let isReadOnly: Bool
-    let onSubmit: (String) -> Void
     let onDrop: (UUID) -> Void
 
-    @State private var text: String = ""
     @State private var isTargeted: Bool = false
     @State private var hovered: Bool = false
-    @FocusState private var focused: Bool
 
     var body: some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(focused ? Theme.Palette.primary : Color.clear)
-                .frame(width: 4)
-            TextField(text: $text, prompt: promptText) {
-                EmptyView()
+        Rectangle()
+            .fill(backgroundColor)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .dropDestination(for: TaskItemDragPayload.self) { payloads, _ in
+                guard !isReadOnly, let p = payloads.first else { return false }
+                onDrop(p.id)
+                return true
+            } isTargeted: { targeted in
+                isTargeted = targeted && !isReadOnly
             }
-            .textFieldStyle(.plain)
-            .font(Theme.Font.bodyMd)
-            .foregroundStyle(Theme.Palette.onSurface)
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .focused($focused)
-            .disabled(isReadOnly)
-            .onSubmit {
-                onSubmit(text)
-                text = ""
-            }
-        }
-        .background(backgroundColor)
-        .contentShape(Rectangle())
-        .dropDestination(for: TaskItemDragPayload.self) { payloads, _ in
-            guard !isReadOnly, let p = payloads.first else { return false }
-            onDrop(p.id)
-            return true
-        } isTargeted: { targeted in
-            isTargeted = targeted && !isReadOnly
-        }
-        .onHover { hovered = $0 }
+            .onHover { hovered = $0 }
     }
 
     private var backgroundColor: Color {
-        if focused { return Theme.Palette.surfaceContainerLowest }
         if isTargeted { return Theme.Palette.surfaceContainerHigh.opacity(0.6) }
-        if hovered { return Theme.Palette.surfaceContainerLow.opacity(0.5) }
+        if hovered && !isReadOnly { return Theme.Palette.surfaceContainerLow.opacity(0.5) }
         return Color.clear
-    }
-
-    private var promptText: Text? {
-        guard isTopOfHour else { return Text("") }
-        return Text("Plan activity…")
     }
 }

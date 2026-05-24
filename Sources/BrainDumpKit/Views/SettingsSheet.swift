@@ -8,6 +8,7 @@ public struct SettingsSheet: View {
     @State private var startHour: Int
     @State private var endHour: Int
     @State private var error: String?
+    @State private var showClearConfirmation: Bool = false
 
     public init(state: AppState, dismiss: @escaping () -> Void) {
         self.state = state
@@ -150,31 +151,68 @@ public struct SettingsSheet: View {
 
     private var generalSection: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("DAY TIME RANGE")
-                        .font(Theme.Font.sectionLabelHeavy)
-                        .tracking(1.4)
-                        .foregroundStyle(Theme.Palette.onSurface)
-                    Text("Set the default start and end times for your schedule grid.")
-                        .font(Theme.Font.bodyMd)
-                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            VStack(alignment: .leading, spacing: 32) {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("DAY TIME RANGE")
+                            .font(Theme.Font.sectionLabelHeavy)
+                            .tracking(1.4)
+                            .foregroundStyle(Theme.Palette.onSurface)
+                        Text("Set the default start and end times for your schedule grid.")
+                            .font(Theme.Font.bodyMd)
+                            .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                    }
+                    HStack(alignment: .top, spacing: 20) {
+                        hourPicker(label: "Day starts at", selection: $startHour, range: 0...20)
+                        hourPicker(label: "Day ends at", selection: $endHour, range: 4...24)
+                    }
+                    if let error {
+                        Text(error)
+                            .font(Theme.Font.caption)
+                            .foregroundStyle(Theme.Palette.secondary)
+                    }
                 }
-                HStack(alignment: .top, spacing: 20) {
-                    hourPicker(label: "Day starts at", selection: $startHour, range: 0...20)
-                    hourPicker(label: "Day ends at", selection: $endHour, range: 4...24)
-                }
-                if let error {
-                    Text(error)
-                        .font(Theme.Font.caption)
-                        .foregroundStyle(Theme.Palette.secondary)
-                }
+                Rectangle()
+                    .fill(Theme.Palette.outlineVariant)
+                    .frame(height: 1)
+                clearDataBlock
             }
             .padding(.horizontal, 28)
             .padding(.vertical, 24)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .alert("Clear all data?", isPresented: $showClearConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear Data", role: .destructive) {
+                state.clearAllData()
+                dismiss()
+            }
+        } message: {
+            Text("This permanently deletes every task, schedule entry, and backlog item across all days. This cannot be undone.")
+        }
+    }
+
+    private var clearDataBlock: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("CLEAR DATA")
+                .font(Theme.Font.sectionLabelHeavy)
+                .tracking(1.4)
+                .foregroundStyle(Theme.Palette.onSurface)
+            Text("Remove all tasks, schedule entries, and backlog items. Settings such as day time range are preserved.")
+                .font(Theme.Font.bodyMd)
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            Button(action: { showClearConfirmation = true }) {
+                Text("Clear Data")
+                    .font(Theme.Font.labelMd)
+                    .padding(.horizontal, 18)
+                    .frame(height: 34)
+                    .foregroundStyle(Theme.Palette.onPrimary)
+                    .background(Theme.Palette.secondary)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private var notificationsSection: some View {

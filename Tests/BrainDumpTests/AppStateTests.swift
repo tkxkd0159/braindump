@@ -91,6 +91,31 @@ import SwiftData
 }
 
 @MainActor
+@Test func clearAllDataWipesEverythingAndResetsNavigation() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let backlogService = BacklogService(context: context)
+    let day = dayService.day(for: TestDate.at(2026, 5, 22))
+    _ = taskService.addBrainDumpItem(title: "Sample", on: day)
+    _ = backlogService.addBacklogItem(title: "Backlog item")
+    let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) }, defaults: defaults)
+    _ = state.setDayBounds(startHour: 7, endHour: 21)
+    state.goToPreviousDay()
+    state.selectedDestination = .backlog
+
+    state.clearAllData()
+
+    #expect((try context.fetch(FetchDescriptor<TaskItem>())).isEmpty)
+    #expect((try context.fetch(FetchDescriptor<Day>())).isEmpty)
+    #expect(state.selectedDate == state.todayDate)
+    #expect(state.selectedDestination == .today)
+    #expect(state.dayStartHour == 7)
+    #expect(state.dayEndHour == 21)
+}
+
+@MainActor
 @Test func sidebarToggleFlipsVisibility() throws {
     let context = try InMemoryStore.makeContext()
     let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) })
