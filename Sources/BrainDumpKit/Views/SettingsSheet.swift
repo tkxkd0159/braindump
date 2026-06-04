@@ -1,4 +1,6 @@
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 public struct SettingsSheet: View {
     @Bindable var state: AppState
@@ -9,6 +11,8 @@ public struct SettingsSheet: View {
     @State private var endHour: Int
     @State private var error: String?
     @State private var showClearConfirmation: Bool = false
+    @State private var showImportConfirmation: Bool = false
+    @State private var backupError: String?
 
     public init(state: AppState, dismiss: @escaping () -> Void) {
         self.state = state
@@ -175,6 +179,10 @@ public struct SettingsSheet: View {
                 Rectangle()
                     .fill(Theme.Palette.outlineVariant)
                     .frame(height: 1)
+                backupBlock
+                Rectangle()
+                    .fill(Theme.Palette.outlineVariant)
+                    .frame(height: 1)
                 clearDataBlock
             }
             .padding(.horizontal, 28)
@@ -190,6 +198,51 @@ public struct SettingsSheet: View {
             }
         } message: {
             Text("This permanently deletes every task, schedule entry, and backlog item across all days. This cannot be undone.")
+        }
+        .alert("Import backup?", isPresented: $showImportConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Import", role: .destructive) { importBackup() }
+        } message: {
+            Text("Importing replaces every task, schedule entry, and backlog item with the backup's contents. This cannot be undone.")
+        }
+    }
+
+    private var backupBlock: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("BACKUP")
+                .font(Theme.Font.sectionLabelHeavy)
+                .tracking(1.4)
+                .foregroundStyle(Theme.Palette.onSurface)
+            Text("Export all your data to a JSON file, or restore from a previous backup.")
+                .font(Theme.Font.bodyMd)
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            HStack(spacing: 10) {
+                Button(action: exportBackup) {
+                    Text("Export Backup…")
+                        .font(Theme.Font.labelMd)
+                        .padding(.horizontal, 18)
+                        .frame(height: 34)
+                        .foregroundStyle(Theme.Palette.onPrimary)
+                        .background(Theme.Palette.primary)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                Button(action: { showImportConfirmation = true }) {
+                    Text("Import Backup…")
+                        .font(Theme.Font.labelMd)
+                        .padding(.horizontal, 18)
+                        .frame(height: 34)
+                        .foregroundStyle(Theme.Palette.primary)
+                        .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            if let backupError {
+                Text(backupError)
+                    .font(Theme.Font.caption)
+                    .foregroundStyle(Theme.Palette.secondary)
+            }
         }
     }
 
@@ -270,6 +323,33 @@ public struct SettingsSheet: View {
         .padding(.horizontal, 28)
         .padding(.vertical, 16)
         .background(Theme.Palette.surfaceContainerLow)
+    }
+
+    private func exportBackup() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "BrainDump-backup.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try state.exportBackupData().write(to: url)
+            backupError = nil
+        } catch {
+            backupError = "Export failed."
+        }
+    }
+
+    private func importBackup() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try state.importBackup(from: Data(contentsOf: url))
+            backupError = nil
+            dismiss()
+        } catch {
+            backupError = "Import failed: the file isn't a valid BrainDump backup."
+        }
     }
 
     private func save() {
