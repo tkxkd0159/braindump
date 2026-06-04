@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   release:
-    runs-on: macos-14 # Apple Silicon; Release build is universal
+    runs-on: macos-26 # Apple Silicon, universal build; Xcode 26 default = Swift 6.x (matches local, clears the swift-tools-version:6.0 gate)
     steps:
       - uses: actions/checkout@v6
 
