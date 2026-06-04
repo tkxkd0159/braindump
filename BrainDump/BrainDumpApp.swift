@@ -5,21 +5,18 @@ import BrainDumpKit
 @main
 struct BrainDumpApp: App {
     let container: ModelContainer
+    let storeRecovery: StoreRecovery
 
     init() {
         Fonts.registerIfNeeded()
-        do {
-            container = try ModelContainer(
-                for: Day.self, TaskItem.self, ScheduleEntry.self
-            )
-        } catch {
-            fatalError("Failed to create ModelContainer: \(error)")
-        }
+        let result = PersistenceController.makeContainer()
+        container = result.container
+        storeRecovery = result.recovery
     }
 
     var body: some Scene {
         WindowGroup("Brain Dump") {
-            AppShell()
+            AppShell(storeRecovery: storeRecovery)
                 .frame(minWidth: 1100, minHeight: 760)
                 .tint(Theme.Palette.primary)
         }
