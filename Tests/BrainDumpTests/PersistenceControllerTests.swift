@@ -40,4 +40,33 @@ struct PersistenceControllerTests {
         #expect(StoreRecovery.inMemoryFallback.isRecovery == true)
         #expect(StoreRecovery.inMemoryFallback.userMessage != nil)
     }
+
+    @Test
+    func makeContainerRecoversFromCorruptStore() throws {
+        let dir = URL.temporaryDirectory.appending(
+            path: "BrainDumpTest-\(UUID().uuidString)", directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appending(path: "BrainDump.store")
+
+        // Not a SQLite database -> ModelContainer open must fail and recover.
+        try Data("this is not a sqlite database".utf8).write(to: url)
+
+        let result = PersistenceController.makeContainer(storeURL: url)
+
+        guard case .recoveredFromCorruption(let movedAsideTo) = result.recovery else {
+            Issue.record("expected .recoveredFromCorruption, got \(result.recovery)")
+            return
+        }
+        // The bad file was moved aside (preserved, not deleted)...
+        let movedSiblings = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            .filter { $0.contains(".corrupt-") }
+        #expect(!movedSiblings.isEmpty)
+        #expect(movedAsideTo.lastPathComponent.contains(".corrupt-"))
+        // ...and the fresh container works.
+        let context = ModelContext(result.container)
+        context.insert(Day(date: TestDate.at(2026, 5, 22)))
+        try context.save()
+        #expect((try context.fetch(FetchDescriptor<Day>())).count == 1)
+    }
 }

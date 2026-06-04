@@ -47,7 +47,9 @@ public enum PersistenceController {
         URL.applicationSupportDirectory.appending(path: "BrainDump/BrainDump.store")
     }
 
-    /// Never throws, never `fatalError`s. (Recovery added in Task 2.)
+    /// Never throws, never `fatalError`s. Tries to open the versioned store;
+    /// on failure moves the unreadable store (and its sidecars) aside and
+    /// retries fresh; last resort an in-memory container.
     public static func makeContainer(
         storeURL: URL = defaultStoreURL()
     ) -> (container: ModelContainer, recovery: StoreRecovery) {
@@ -55,8 +57,44 @@ public enum PersistenceController {
         try? FileManager.default.createDirectory(
             at: storeURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let config = ModelConfiguration(schema: schema, url: storeURL)
-        let container = try! ModelContainer(
-            for: schema, migrationPlan: BrainDumpMigrationPlan.self, configurations: config)
-        return (container, .normal)
+
+        do {
+            let container = try ModelContainer(
+                for: schema, migrationPlan: BrainDumpMigrationPlan.self, configurations: config)
+            return (container, .normal)
+        } catch {
+            let movedAsideTo = moveAside(storeURL)
+            do {
+                let container = try ModelContainer(
+                    for: schema, migrationPlan: BrainDumpMigrationPlan.self, configurations: config)
+                return (container, .recoveredFromCorruption(movedAsideTo: movedAsideTo))
+            } catch {
+                // Last resort: in-memory with a valid schema is effectively
+                // infallible, so the app never crashes on launch.
+                let memConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                let container = try! ModelContainer(for: schema, configurations: memConfig)
+                return (container, .inMemoryFallback)
+            }
+        }
+    }
+
+    /// Renames the unreadable store and its SQLite sidecars to
+    /// `<name>.corrupt-<unix-stamp><suffix>` (preserved, not deleted).
+    /// Returns the moved-aside main store URL.
+    private static func moveAside(_ storeURL: URL) -> URL {
+        let fm = FileManager.default
+        let stamp = Int(Date().timeIntervalSince1970)
+        let dir = storeURL.deletingLastPathComponent()
+        let base = storeURL.lastPathComponent
+        var movedMain = dir.appending(path: "\(base).corrupt-\(stamp)")
+        for suffix in ["", "-wal", "-shm"] {
+            let src = URL(fileURLWithPath: storeURL.path + suffix)
+            guard fm.fileExists(atPath: src.path) else { continue }
+            let dst = dir.appending(path: "\(base).corrupt-\(stamp)\(suffix)")
+            try? fm.removeItem(at: dst)
+            try? fm.moveItem(at: src, to: dst)
+            if suffix.isEmpty { movedMain = dst }
+        }
+        return movedMain
     }
 }
