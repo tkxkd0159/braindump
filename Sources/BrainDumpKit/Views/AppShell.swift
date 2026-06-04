@@ -5,13 +5,19 @@ public struct AppShell: View {
     @Environment(\.modelContext) private var context
     @State private var state: AppState?
 
+    private let storeRecovery: StoreRecovery
+    @State private var showRecoveryNotice: Bool
+
     static let sidebarWidth: CGFloat = 256
     // Left column (Top3 + BrainDump) >= 360, schedule >= 480, gutter 24,
     // canvas horizontal padding 64 * 2.
     static let canvasMin: CGFloat = 64 + 360 + 24 + 480 + 64
     static let sidebarThreshold: CGFloat = canvasMin + sidebarWidth
 
-    public init() {}
+    public init(storeRecovery: StoreRecovery = .normal) {
+        self.storeRecovery = storeRecovery
+        _showRecoveryNotice = State(initialValue: storeRecovery.isRecovery)
+    }
 
     public var body: some View {
         Group {
@@ -42,6 +48,11 @@ public struct AppShell: View {
         }
         .onAppear {
             if state == nil { state = AppState(context: context) }
+        }
+        .alert("Data could not be opened", isPresented: $showRecoveryNotice) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(storeRecovery.userMessage ?? "")
         }
     }
 }
