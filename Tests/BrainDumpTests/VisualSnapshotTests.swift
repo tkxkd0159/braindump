@@ -485,6 +485,35 @@ struct VisualSnapshotTests {
             view, size: NSSize(width: 600, height: 260), filename: "snapshot-completion-filter-both-on.png")
     }
 
+    /// After Clear Data the day subtree rebuilds against a fresh empty `Day`
+    /// (`.id(state.dataGeneration)`). Locks that empty-Today visual and
+    /// exercises the post-clear render path.
+    @Test
+    func captureClearedToday() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        _ = TaskService(context: context).addBrainDumpItem(title: "Will be cleared", on: day)
+
+        let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+        let state = AppState(
+            context: context,
+            now: { TestDate.at(2026, 5, 22) },
+            wiseSaying: WiseSaying(quote: "A clean slate.", author: "—"),
+            defaults: defaults
+        )
+        state.clearAllData()
+
+        let view = DayView(state: state)
+            .id(state.dataGeneration)
+            .environment(\.modelContext, context)
+            .padding(.horizontal, 64)
+            .padding(.top, 36)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1180, height: 1100), filename: "snapshot-cleared-today.png")
+    }
+
     // MARK: - Rendering
 
     private func renderViaHostingWindow<V: View>(_ view: V, size: NSSize, filename: String) {
