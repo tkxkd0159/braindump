@@ -51,6 +51,32 @@ import SwiftData
 }
 
 @MainActor
+@Test func importBackupReplacesDataAndBumpsGeneration() throws {
+    // Source data exported from one context.
+    let source = try InMemoryStore.makeContext()
+    let sDay = DayService(context: source).day(for: TestDate.at(2026, 5, 22))
+    _ = TaskService(context: source).addBrainDumpItem(title: "Imported task", on: sDay)
+    let data = try BackupService(context: source).exportData()
+
+    // Target AppState with its own (different) data.
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) }, defaults: defaults)
+    _ = TaskService(context: context).addBrainDumpItem(
+        title: "OLD", on: DayService(context: context).day(for: TestDate.at(2026, 5, 22)))
+    let before = state.dataGeneration
+
+    state.selectedDestination = .backlog
+    try state.importBackup(from: data)
+
+    #expect(state.dataGeneration == before + 1)
+    #expect(state.selectedDestination == .today)
+    let titles = try context.fetch(FetchDescriptor<TaskItem>()).map(\.title)
+    #expect(titles == ["Imported task"])
+    #expect(try !state.exportBackupData().isEmpty)
+}
+
+@MainActor
 @Test func isTodayReflectsSelectedDate() throws {
     let context = try InMemoryStore.makeContext()
     let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) })

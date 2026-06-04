@@ -105,4 +105,18 @@ public final class AppState {
         selectedDestination = .today
         dataGeneration += 1
     }
+
+    /// Serialize all data to a JSON backup.
+    public func exportBackupData() throws -> Data {
+        try BackupService(context: context).exportData()
+    }
+
+    /// Replace all data with a backup, then reset navigation to Today and
+    /// rebuild the day subtree (same mechanism as `clearAllData`).
+    public func importBackup(from data: Data) throws {
+        try BackupService(context: context).restore(from: data)
+        selectedDate = todayDate
+        selectedDestination = .today
+        dataGeneration += 1
+    }
 }
