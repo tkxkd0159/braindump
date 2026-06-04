@@ -5,17 +5,17 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write          # required to create the Release
+  contents: write
 
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: false  # never abort a release mid-flight
+  cancel-in-progress: false # never abort a release mid-flight
 
 jobs:
   release:
-    runs-on: macos-14        # Apple Silicon; Release build is universal
+    runs-on: macos-14 # Apple Silicon; Release build is universal
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Derive version from tag
         id: ver
