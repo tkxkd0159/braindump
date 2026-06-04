@@ -22,11 +22,21 @@ if ! command -v create-dmg >/dev/null; then
     exit 1
 fi
 
+# Build settings injected at the command line (no project.pbxproj edits):
+#  - version comes from CI; falls back to the project's values when unset locally
+#  - ENABLE_HARDENED_RUNTIME=NO: pointless without notarization and worsens the
+#    Gatekeeper experience on unsigned, quarantined downloads ("is damaged")
+#  - ONLY_ACTIVE_ARCH=NO: universal binary so the DMG runs on Apple Silicon + Intel
+build_overrides=( ENABLE_HARDENED_RUNTIME=NO ONLY_ACTIVE_ARCH=NO )
+[[ -n "${MARKETING_VERSION:-}" ]] && build_overrides+=( "MARKETING_VERSION=$MARKETING_VERSION" )
+[[ -n "${CURRENT_PROJECT_VERSION:-}" ]] && build_overrides+=( "CURRENT_PROJECT_VERSION=$CURRENT_PROJECT_VERSION" )
+
 xcodebuild \
     -project BrainDump.xcodeproj \
     -scheme BrainDump \
     -configuration "$CONFIG" \
     -derivedDataPath "$DERIVED" \
+    "${build_overrides[@]}" \
     build >/dev/null
 
 APP="$DERIVED/Build/Products/$CONFIG/BrainDump.app"
