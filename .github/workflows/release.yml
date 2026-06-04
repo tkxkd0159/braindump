@@ -36,6 +36,9 @@ jobs:
         run: swift test
 
       - name: Install create-dmg
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1" # skip the slow formulae-index refresh; create-dmg is already in the runner image
+          HOMEBREW_NO_INSTALL_UPGRADE: "1" # don't upgrade unrelated preinstalled formulae mid-release
         run: brew install create-dmg
 
       - name: Build DMG
