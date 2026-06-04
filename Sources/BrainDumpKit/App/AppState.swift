@@ -41,6 +41,26 @@ public final class AppState {
     public var dayStartMinute: Int { dayStartHour * 60 }
     public var dayEndMinute: Int { dayEndHour * 60 }
 
+    /// Minutes-since-midnight of the current wall-clock time, via the injected
+    /// clock (so tests are deterministic).
+    public var currentMinuteOfDay: Int {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: now())
+        return (c.hour ?? 0) * 60 + (c.minute ?? 0)
+    }
+
+    /// Default start minute the "Schedule" menu pre-fills for the selected day:
+    /// the nearest available slot at/after now (today) or the day start (any
+    /// other day), within the day window, skipping `occupied` ranges.
+    public func defaultScheduleStartMinute(occupied: [Range<Int>]) -> Int {
+        let reference = isToday ? currentMinuteOfDay : dayStartMinute
+        return ScheduleDefaults.defaultStartMinute(
+            referenceMinute: reference,
+            dayStartMinute: dayStartMinute,
+            dayEndMinute: dayEndMinute,
+            occupied: occupied
+        )
+    }
+
     public init(
         context: ModelContext,
         now: @escaping () -> Date = { Date() },

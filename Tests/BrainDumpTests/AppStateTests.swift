@@ -154,6 +154,79 @@ import SwiftData
 }
 
 @MainActor
+@Test func currentMinuteOfDayReflectsInjectedClock() throws {
+    let context = try InMemoryStore.makeContext()
+    let state = AppState(context: context, now: { TestDate.at(2026, 5, 22, hour: 8, minute: 13) })
+    #expect(state.currentMinuteOfDay == 8 * 60 + 13)
+}
+
+@MainActor
+@Test func defaultScheduleStartRoundsUpFromCurrentTime() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    // 8:13 AM, default 5–22 window, nothing scheduled → 8:15 AM.
+    let state = AppState(
+        context: context, now: { TestDate.at(2026, 5, 22, hour: 8, minute: 13) }, defaults: defaults)
+    #expect(state.defaultScheduleStartMinute(occupied: []) == 8 * 60 + 15)
+}
+
+@MainActor
+@Test func defaultScheduleStartClampsToDayStartBeforeWindow() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    // 3:00 AM with a 5:00 AM day start → 5:00 AM.
+    let state = AppState(
+        context: context, now: { TestDate.at(2026, 5, 22, hour: 3) }, defaults: defaults)
+    #expect(state.defaultScheduleStartMinute(occupied: []) == state.dayStartMinute)
+}
+
+@MainActor
+@Test func defaultScheduleStartSkipsOccupiedSlot() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    // 8:00 AM but 8:00–9:00 is taken → 9:00 AM.
+    let state = AppState(
+        context: context, now: { TestDate.at(2026, 5, 22, hour: 8) }, defaults: defaults)
+    #expect(state.defaultScheduleStartMinute(occupied: [(8 * 60)..<(9 * 60)]) == 9 * 60)
+}
+
+@MainActor
+@Test func defaultScheduleStartUsesDayStartWhenViewingAnotherDay() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let state = AppState(
+        context: context, now: { TestDate.at(2026, 5, 22, hour: 8, minute: 13) }, defaults: defaults)
+    state.goToPreviousDay()  // selected day is no longer today
+    #expect(state.defaultScheduleStartMinute(occupied: []) == state.dayStartMinute)
+}
+
+@MainActor
+@Test func schedulingAtComputedDefaultAvoidsExistingBlock() throws {
+    // End-to-end promise of the "Schedule" menu: the default it computes from
+    // the day's occupied ranges can be scheduled without a conflict.
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let scheduleService = ScheduleService(context: context)
+    let state = AppState(
+        context: context, now: { TestDate.at(2026, 5, 22, hour: 8) }, defaults: defaults)
+    let day = dayService.day(for: state.selectedDate)
+    let existing = taskService.addBrainDumpItem(title: "Existing", on: day)
+    _ = try scheduleService.schedule(existing, on: day, startMinute: 8 * 60, durationMinutes: 60)
+    let incoming = taskService.addBrainDumpItem(title: "New", on: day)
+
+    let occupied = day.schedule.map { $0.startMinute..<$0.endMinute }
+    let start = state.defaultScheduleStartMinute(occupied: occupied)
+    #expect(start == 9 * 60)  // 8:00 is taken, so the default skips to 9:00
+
+    let entry = try scheduleService.schedule(
+        incoming, on: day, startMinute: start, durationMinutes: 60)
+    #expect(entry.startMinute == 9 * 60)
+    #expect(day.schedule.count == 2)
+}
+
+@MainActor
 @Test func sidebarToggleFlipsVisibility() throws {
     let context = try InMemoryStore.makeContext()
     let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) })
