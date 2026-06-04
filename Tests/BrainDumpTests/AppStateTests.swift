@@ -39,6 +39,18 @@ import SwiftData
 }
 
 @MainActor
+@Test func clearAllDataIncrementsDataGeneration() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) }, defaults: defaults)
+
+    let before = state.dataGeneration
+    state.clearAllData()
+
+    #expect(state.dataGeneration == before + 1)
+}
+
+@MainActor
 @Test func isTodayReflectsSelectedDate() throws {
     let context = try InMemoryStore.makeContext()
     let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) })

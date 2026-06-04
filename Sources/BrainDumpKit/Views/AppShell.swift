@@ -178,6 +178,7 @@ private struct MainCanvas: View {
                         .padding(.horizontal, 64)
                         .padding(.bottom, 48)
                     DayView(state: state)
+                        .id(state.dataGeneration)
                         .padding(.horizontal, 64)
                         .padding(.bottom, 48)
                 case .tasks:

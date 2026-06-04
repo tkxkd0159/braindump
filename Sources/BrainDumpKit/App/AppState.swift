@@ -23,6 +23,11 @@ public final class AppState {
 
     public var isSidebarVisible: Bool = true
 
+    /// Bumped whenever stored content is wiped. Folded into `DayView`'s SwiftUI
+    /// identity so the day subtree is rebuilt against fresh models instead of
+    /// re-rendered against just-deleted ones (the Clear Data crash).
+    public private(set) var dataGeneration: Int = 0
+
     private static let dayStartHourKey = "BrainDump.dayStartHour"
     private static let dayEndHourKey = "BrainDump.dayEndHour"
 
@@ -98,5 +103,6 @@ public final class AppState {
         dayService.clearAllData()
         selectedDate = todayDate
         selectedDestination = .today
+        dataGeneration += 1
     }
 }

@@ -63,7 +63,15 @@ public struct BrainDumpSection: View {
                 ScrollView(.vertical, showsIndicators: true) {
                     VStack(spacing: 12) {
                         ForEach(brainDumpItems, id: \.id) { item in
-                            row(for: item)
+                            // A ForEach child can be re-evaluated against an item
+                            // the Clear Data wipe just deleted — the section
+                            // body's `day.modelContext` guard is bypassed for
+                            // individual child updates (that is the crash). Match
+                            // Top3SlotRow / ScheduleBlockView: skip a detached
+                            // item before `row(for:)` reads any of its attributes.
+                            if item.modelContext != nil {
+                                row(for: item)
+                            }
                         }
                         if !isReadOnly {
                             addRow
