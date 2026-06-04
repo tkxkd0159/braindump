@@ -180,52 +180,85 @@ private struct MainCanvas: View {
     @Bindable var state: AppState
 
     var body: some View {
+        switch state.selectedDestination {
+        case .today:
+            todayLayout
+        case .tasks:
+            scrolling {
+                TasksScreen()
+                    .padding(.horizontal, 64)
+                    .padding(.bottom, 48)
+            }
+        case .backlog:
+            scrolling {
+                BacklogScreen(state: state)
+                    .padding(.horizontal, 64)
+                    .padding(.bottom, 48)
+            }
+        }
+    }
+
+    // Today fills the window: the date + wise-saying header sits at the top
+    // (on the same line as the sidebar's "Daily Timebox Planner" title) and
+    // DayView takes all the remaining height, running its own internal scroll
+    // regions (brain dump + schedule). The sidebar toggle floats as a
+    // top-leading overlay so it never pushes the header down.
+    private var todayLayout: some View {
+        ZStack(alignment: .topLeading) {
+            VStack(alignment: .leading, spacing: 0) {
+                DateHeader(state: state)
+                    .padding(.horizontal, 64)
+                    .padding(.top, 24)
+                    .padding(.bottom, 28)
+                DayView(state: state)
+                    .id(state.dataGeneration)
+                    .padding(.horizontal, 64)
+                    .padding(.bottom, 24)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            SidebarToggle(state: state)
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    // Tasks / Backlog keep the original scroll-the-whole-page behavior, with
+    // the toggle in a leading top bar that reserves its own height.
+    private func scrolling<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                topBar
-                switch state.selectedDestination {
-                case .today:
-                    DateHeader(state: state)
-                        .padding(.horizontal, 64)
-                        .padding(.bottom, 48)
-                    DayView(state: state)
-                        .id(state.dataGeneration)
-                        .padding(.horizontal, 64)
-                        .padding(.bottom, 48)
-                case .tasks:
-                    TasksScreen()
-                        .padding(.horizontal, 64)
-                        .padding(.top, 24)
-                        .padding(.bottom, 48)
-                case .backlog:
-                    BacklogScreen(state: state)
-                        .padding(.horizontal, 64)
-                        .padding(.top, 24)
-                        .padding(.bottom, 48)
+                HStack(spacing: 0) {
+                    SidebarToggle(state: state)
+                    Spacer()
                 }
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
+                content()
+                    .padding(.top, 24)
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
+}
 
-    private var topBar: some View {
-        HStack(spacing: 0) {
-            Button(action: { state.toggleSidebar() }) {
-                Image(systemName: "sidebar.left")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                    .frame(width: 32, height: 32)
-                    .background(Theme.Palette.surfaceContainerLow.opacity(0.0001))
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(state.isSidebarVisible ? "Hide Sidebar" : "Show Sidebar")
-            .keyboardShortcut("b", modifiers: [.command])
-            Spacer()
+private struct SidebarToggle: View {
+    @Bindable var state: AppState
+
+    var body: some View {
+        Button(action: { state.toggleSidebar() }) {
+            Image(systemName: "sidebar.left")
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                .frame(width: 32, height: 32)
+                .background(Theme.Palette.surfaceContainerLow.opacity(0.0001))
+                .contentShape(Rectangle())
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 12)
+        .buttonStyle(.plain)
+        .help(state.isSidebarVisible ? "Hide Sidebar" : "Show Sidebar")
+        .keyboardShortcut("b", modifiers: [.command])
     }
 }
 

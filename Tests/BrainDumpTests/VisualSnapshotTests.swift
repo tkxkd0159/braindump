@@ -514,6 +514,101 @@ struct VisualSnapshotTests {
             view, size: NSSize(width: 1180, height: 1100), filename: "snapshot-cleared-today.png")
     }
 
+    /// F4 + F2 + F3 together at a realistic (not artificially tall) window:
+    /// the date/saying header sits at the top line, the three sections are
+    /// pulled up, and the schedule fills the window height (scrolling
+    /// internally) instead of the whole page scrolling.
+    @Test
+    func captureTodayRealisticWindowFillsAndScrolls() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        let scheduleService = ScheduleService(context: context)
+        let manuscript = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+        try taskService.escalate(manuscript, on: day)
+        _ = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
+        _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
+        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+
+        let view = AppShell()
+            .environment(\.modelContext, context)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1440, height: 900), filename: "feature-today-realistic.png")
+    }
+
+    /// F3: with many brain-dump items the "Add new task…" creator stays pinned
+    /// at the top while the items scroll beneath it (only the first few show).
+    @Test
+    func captureBrainDumpManyItemsAddRowPinnedAtTop() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        for i in 1...14 {
+            _ = taskService.addBrainDumpItem(title: "Brain dump item number \(i)", on: day)
+        }
+
+        let view = BrainDumpSection(day: day, isReadOnly: false)
+            .environment(\.modelContext, context)
+            .padding(24)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 480, height: 520),
+            filename: "feature-braindump-addrow-pinned.png")
+    }
+
+    /// F2: at a short height the schedule grid scrolls inside its card
+    /// (Google-Calendar day view), showing only the top of the day window.
+    @Test
+    func captureScheduleSectionScrollsAtShortHeight() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        let scheduleService = ScheduleService(context: context)
+        let manuscript = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+
+        let view = ScheduleSection(day: day, isReadOnly: false)
+            .environment(\.modelContext, context)
+            .padding(24)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 640, height: 520),
+            filename: "feature-schedule-scrolls.png")
+    }
+
+    /// F1: the TimeBlockSheet pre-filled with the default the "Schedule" menu
+    /// computes for a current time of 8:13 AM — the start clock should read
+    /// 8:15 AM (rounded up to the next 15-minute step).
+    @Test
+    func captureTimeBlockSheetDefaultStartForCurrentTime() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+        let state = AppState(
+            context: context, now: { TestDate.at(2026, 5, 22, hour: 8, minute: 13) },
+            wiseSaying: WiseSaying(quote: "x", author: "y"), defaults: defaults)
+        let start = state.defaultScheduleStartMinute(occupied: [])
+        #expect(start == 8 * 60 + 15)
+
+        let view = TimeBlockSheet(
+            initialStartMinute: start,
+            initialDurationMinutes: 60,
+            dayStartHour: state.dayStartHour,
+            dayEndHour: state.dayEndHour,
+            onConfirm: { _, _, _ in },
+            onCancel: {}
+        )
+        .environment(\.modelContext, context)
+        .padding(40)
+        .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 540, height: 420),
+            filename: "feature-timeblock-default-start.png")
+    }
+
     // MARK: - Rendering
 
     private func renderViaHostingWindow<V: View>(_ view: V, size: NSSize, filename: String) {
