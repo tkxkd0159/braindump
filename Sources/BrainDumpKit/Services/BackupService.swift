@@ -53,6 +53,68 @@ public final class BackupService {
         return try encoder.encode(snapshot)
     }
 
+    public func restore(from data: Data) throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let snapshot: BackupSnapshot
+        do {
+            snapshot = try decoder.decode(BackupSnapshot.self, from: data)
+        } catch {
+            throw BackupError.malformed
+        }
+        guard snapshot.version == Self.currentVersion else {
+            throw BackupError.unsupportedVersion(snapshot.version)
+        }
+        deleteAll()
+        apply(snapshot)
+        try context.save()
+    }
+
+    private func deleteAll() {
+        for e in (try? context.fetch(FetchDescriptor<ScheduleEntry>())) ?? [] { context.delete(e) }
+        for i in (try? context.fetch(FetchDescriptor<TaskItem>())) ?? [] { context.delete(i) }
+        for d in (try? context.fetch(FetchDescriptor<Day>())) ?? [] { context.delete(d) }
+    }
+
+    private func apply(_ snapshot: BackupSnapshot) {
+        for dto in snapshot.days {
+            let day = Day(date: dto.date)
+            context.insert(day)
+            day.top3ItemIDs = dto.top3ItemIDs
+
+            var itemsByID: [UUID: TaskItem] = [:]
+            for itemDTO in dto.items {
+                let item = makeItem(itemDTO)
+                item.day = day
+                context.insert(item)
+                itemsByID[itemDTO.id] = item
+            }
+            for entryDTO in dto.entries {
+                let entry = ScheduleEntry(
+                    startMinute: entryDTO.startMinute,
+                    durationMinutes: entryDTO.durationMinutes,
+                    colorIndex: entryDTO.colorIndex,
+                    item: entryDTO.itemID.flatMap { itemsByID[$0] },
+                    day: day)
+                entry.id = entryDTO.id
+                entry.isCompleted = entryDTO.isCompleted
+                entry.completedAt = entryDTO.completedAt
+                context.insert(entry)
+            }
+        }
+        for itemDTO in snapshot.backlogItems {
+            context.insert(makeItem(itemDTO))
+        }
+    }
+
+    private func makeItem(_ dto: ItemDTO) -> TaskItem {
+        let item = TaskItem(
+            title: dto.title, createdAt: dto.createdAt, notes: dto.notes,
+            tags: dto.tags, isBacklog: dto.isBacklog)
+        item.id = dto.id
+        return item
+    }
+
     private func makeSnapshot() -> BackupSnapshot {
         let allDays = (try? context.fetch(
             FetchDescriptor<Day>(sortBy: [SortDescriptor(\.date)]))) ?? []
