@@ -6,6 +6,7 @@ public struct AppShell: View {
     @State private var state: AppState?
 
     private let storeRecovery: StoreRecovery
+    private let initialDestination: SidebarDestination?
     @State private var showRecoveryNotice: Bool
 
     static let sidebarWidth: CGFloat = 256
@@ -14,8 +15,24 @@ public struct AppShell: View {
     static let canvasMin: CGFloat = 64 + 360 + 24 + 480 + 64
     static let sidebarThreshold: CGFloat = canvasMin + sidebarWidth
 
-    public init(storeRecovery: StoreRecovery = .normal) {
+    // Top inset shared by the sidebar title and every tab's content, so each
+    // tab's first row lines up with the "Daily Timebox Planner" title.
+    static let contentTopInset: CGFloat = 28
+    // Reminders-style toolbar metrics for the floating sidebar toggle. With
+    // `.windowStyle(.hiddenTitleBar)` the macOS traffic-lights keep their
+    // standard frames — close/min/zoom span x≈9–69, vertically centered at
+    // y≈16 — so the toggle drops just to their right on the same line.
+    static let toolbarLeadingInset: CGFloat = 76
+    // 32pt toggle anchored at the top edge centers its glyph at y≈16, matching
+    // the traffic-light line. Kept explicit so it can be nudged independently.
+    static let toolbarTopInset: CGFloat = 0
+
+    public init(
+        storeRecovery: StoreRecovery = .normal,
+        initialDestination: SidebarDestination? = nil
+    ) {
         self.storeRecovery = storeRecovery
+        self.initialDestination = initialDestination
         _showRecoveryNotice = State(initialValue: storeRecovery.isRecovery)
     }
 
@@ -37,6 +54,19 @@ public struct AppShell: View {
                     }
                     .animation(.easeInOut(duration: 0.18), value: effectivelyVisible)
                     .background(Theme.Palette.surface)
+                    // The sidebar toggle floats on the traffic-light line at a
+                    // fixed window position (Reminders-style) — outside the
+                    // sidebar/canvas split, so it stays put when the sidebar
+                    // shows/hides and never reserves space in the content.
+                    // `.hiddenTitleBar` keeps a full-size background but insets
+                    // layout below the title-bar band; ignoring the top safe
+                    // area lifts the toggle into that band, beside the lights.
+                    .overlay(alignment: .topLeading) {
+                        SidebarToggle(state: state)
+                            .padding(.leading, Self.toolbarLeadingInset)
+                            .padding(.top, Self.toolbarTopInset)
+                            .ignoresSafeArea(.container, edges: .top)
+                    }
                 }
                 .frame(minWidth: Self.canvasMin, minHeight: 760)
             } else {
@@ -47,7 +77,11 @@ public struct AppShell: View {
             }
         }
         .onAppear {
-            if state == nil { state = AppState(context: context) }
+            if state == nil {
+                let created = AppState(context: context)
+                if let initialDestination { created.selectedDestination = initialDestination }
+                state = created
+            }
         }
         .alert("Data could not be opened", isPresented: $showRecoveryNotice) {
             Button("OK", role: .cancel) {}
@@ -70,7 +104,7 @@ private struct Sidebar: View {
                     .foregroundStyle(Theme.Palette.onSurfaceVariant)
             }
             .padding(.horizontal, 24)
-            .padding(.top, 28)
+            .padding(.top, AppShell.contentTopInset)
             .padding(.bottom, 40)
 
             VStack(alignment: .leading, spacing: 6) {
@@ -180,52 +214,73 @@ private struct MainCanvas: View {
     @Bindable var state: AppState
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
-                topBar
-                switch state.selectedDestination {
-                case .today:
-                    DateHeader(state: state)
-                        .padding(.horizontal, 64)
-                        .padding(.bottom, 48)
-                    DayView(state: state)
-                        .id(state.dataGeneration)
-                        .padding(.horizontal, 64)
-                        .padding(.bottom, 48)
-                case .tasks:
-                    TasksScreen()
-                        .padding(.horizontal, 64)
-                        .padding(.top, 24)
-                        .padding(.bottom, 48)
-                case .backlog:
-                    BacklogScreen(state: state)
-                        .padding(.horizontal, 64)
-                        .padding(.top, 24)
-                        .padding(.bottom, 48)
-                }
+        switch state.selectedDestination {
+        case .today:
+            todayLayout
+        case .tasks:
+            scrolling {
+                TasksScreen()
+                    .padding(.horizontal, 64)
+                    .padding(.bottom, 48)
             }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+        case .backlog:
+            scrolling {
+                BacklogScreen(state: state)
+                    .padding(.horizontal, 64)
+                    .padding(.bottom, 48)
+            }
+        }
+    }
+
+    // Today fills the window: the date + wise-saying header sits at the top,
+    // its top lined up with the sidebar's "Daily Timebox Planner" title, and
+    // DayView takes all the remaining height, running its own internal scroll
+    // regions (brain dump + schedule). The sidebar toggle lives in AppShell's
+    // window overlay (traffic-light line), so nothing reserves space above the
+    // header here.
+    private var todayLayout: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            DateHeader(state: state)
+                .padding(.horizontal, 64)
+                .padding(.top, AppShell.contentTopInset)
+                .padding(.bottom, 28)
+            DayView(state: state)
+                .id(state.dataGeneration)
+                .padding(.horizontal, 64)
+                .padding(.bottom, 24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    private var topBar: some View {
-        HStack(spacing: 0) {
-            Button(action: { state.toggleSidebar() }) {
-                Image(systemName: "sidebar.left")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                    .frame(width: 32, height: 32)
-                    .background(Theme.Palette.surfaceContainerLow.opacity(0.0001))
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(state.isSidebarVisible ? "Hide Sidebar" : "Show Sidebar")
-            .keyboardShortcut("b", modifiers: [.command])
-            Spacer()
+    // Tasks / Backlog scroll the whole page. The header starts at the shared
+    // top inset so its title lines up with the sidebar title; the toggle no
+    // longer occupies a reserved row (it floats in AppShell's overlay).
+    private func scrolling<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            content()
+                .padding(.top, AppShell.contentTopInset)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct SidebarToggle: View {
+    @Bindable var state: AppState
+
+    var body: some View {
+        Button(action: { state.toggleSidebar() }) {
+            Image(systemName: "sidebar.left")
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                .frame(width: 32, height: 32)
+                .background(Theme.Palette.surfaceContainerLow.opacity(0.0001))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(state.isSidebarVisible ? "Hide Sidebar" : "Show Sidebar")
+        .keyboardShortcut("b", modifiers: [.command])
     }
 }
 

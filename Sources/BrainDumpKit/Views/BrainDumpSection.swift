@@ -6,6 +6,7 @@ public struct BrainDumpSection: View {
     let day: Day
     let isReadOnly: Bool
     let openDetail: ((TaskDetailFocus) -> Void)?
+    let onSchedule: ((TaskItem) -> Void)?
 
     @State private var newTitle: String = ""
     @State private var newNotes: String = ""
@@ -27,11 +28,13 @@ public struct BrainDumpSection: View {
     public init(
         day: Day,
         isReadOnly: Bool,
-        openDetail: ((TaskDetailFocus) -> Void)? = nil
+        openDetail: ((TaskDetailFocus) -> Void)? = nil,
+        onSchedule: ((TaskItem) -> Void)? = nil
     ) {
         self.day = day
         self.isReadOnly = isReadOnly
         self.openDetail = openDetail
+        self.onSchedule = onSchedule
     }
 
     private var taskService: TaskService { TaskService(context: context) }
@@ -53,13 +56,14 @@ public struct BrainDumpSection: View {
         // See Top3Section: guard against a detached `day` after Clear Data
         // so we don't fault-resolve `top3ItemIDs` / `items` / `schedule`.
         if day.modelContext != nil {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 16) {
                 header
                 if let escalateError {
                     Text(escalateError)
                         .font(Theme.Font.caption)
                         .foregroundStyle(Theme.Palette.secondary)
                 }
+
                 ScrollView(.vertical, showsIndicators: true) {
                     VStack(spacing: 12) {
                         ForEach(brainDumpItems, id: \.id) { item in
@@ -73,14 +77,13 @@ public struct BrainDumpSection: View {
                                 row(for: item)
                             }
                         }
-                        if !isReadOnly {
-                            addRow
-                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 2)
                 }
-                .frame(maxHeight: 500)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .modifier(DemoteDropZone(day: day, isReadOnly: isReadOnly))
             .sheet(item: $pendingSwap) { swap in
                 Top3SwapSheet(
@@ -109,6 +112,7 @@ public struct BrainDumpSection: View {
                         .foregroundStyle(Theme.Palette.onSurfaceVariant)
                 }
                 .buttonStyle(.plain)
+                .keyboardShortcut("t", modifiers: [.command])
                 .help("Add brain-dump item")
             }
         }
@@ -184,6 +188,9 @@ public struct BrainDumpSection: View {
         .draggable(TaskItemDragPayload(id: item.id))
         .contextMenu {
             if !isReadOnly {
+                Button("Schedule") {
+                    onSchedule?(item)
+                }
                 Button("Move to Priority") {
                     do {
                         try taskService.escalate(item, on: day)
@@ -214,68 +221,6 @@ public struct BrainDumpSection: View {
             .font(Theme.Font.bodyMd)
             .strikethrough(completed)
             .foregroundStyle(completed ? Theme.Palette.outline : Theme.Palette.onSurface)
-    }
-
-    private var addRow: some View {
-        let isFocused = addFocus != nil
-        let shouldExpand =
-            isFocused || !newNotes.isEmpty || !newTags.isEmpty || !newTagDraft.isEmpty
-
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 14) {
-                TextField("Add new task…", text: $newTitle)
-                    .textFieldStyle(.plain)
-                    .font(Theme.Font.bodyMd)
-                    .foregroundStyle(Theme.Palette.onSurface)
-                    .focused($addFocus, equals: .title)
-                    .onSubmit(submitNew)
-                    .onKeyPress(.escape) { handleEscape() }
-                Spacer(minLength: 0)
-            }
-            if shouldExpand {
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("Description", text: $newNotes)
-                        .textFieldStyle(.plain)
-                        .font(Theme.Font.bodyMd)
-                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                        .padding(8)
-                        .background(Theme.Palette.surfaceContainer)
-                        .overlay(
-                            Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1)
-                        )
-                        .focused($addFocus, equals: .notes)
-                        .onSubmit(submitNew)
-                        .onKeyPress(.escape) { handleEscape() }
-                    TagInputField(
-                        tags: $newTags,
-                        draft: $newTagDraft,
-                        allKnownTags: taskService.allTags(),
-                        isCompact: true
-                    )
-                    HStack(spacing: 6) {
-                        Spacer(minLength: 0)
-                        Button("Save", action: submitNew)
-                            .buttonStyle(.plain)
-                            .font(Theme.Font.labelMd)
-                            .padding(.horizontal, 12)
-                            .frame(height: 28)
-                            .foregroundStyle(Theme.Palette.onPrimary)
-                            .background(Theme.Palette.primary)
-                            .disabled(
-                                newTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                }
-            }
-        }
-        .padding(14)
-        .background(Theme.Palette.surfaceContainerLowest)
-        .overlay(
-            Rectangle()
-                .strokeBorder(
-                    isFocused ? Theme.Palette.primary : Theme.Palette.outlineVariant,
-                    lineWidth: 1
-                )
-        )
     }
 
     private func submitNew() {

@@ -178,6 +178,19 @@ struct VisualSnapshotTests {
         #expect(AppShell.sidebarThreshold == 1248)
     }
 
+    /// Chrome contract for the Reminders-style toggle row. `contentTopInset` is
+    /// the single inset the sidebar title and every tab's content both use, so
+    /// their tops line up. `toolbarLeadingInset` must clear the macOS
+    /// traffic-light cluster (close/min/zoom right edge ≈ x69 with
+    /// `.hiddenTitleBar`) so the toggle never overlaps it, and the toggle must
+    /// stay on the traffic-light line (centered near y16), not drift downward.
+    @Test
+    func toolbarChromeMetricsAlignContentAndClearTrafficLights() {
+        #expect(AppShell.contentTopInset == 28)
+        #expect(AppShell.toolbarLeadingInset >= 70)
+        #expect((0...16).contains(Int(AppShell.toolbarTopInset)))
+    }
+
     /// When the window is wider than the previous 1280 cap, the canvas
     /// must fill the available width instead of leaving empty space on
     /// the right.
@@ -289,7 +302,8 @@ struct VisualSnapshotTests {
         Fonts.registerIfNeeded()
         let context = try InMemoryStore.makeContext()
         let backlog = BacklogService(context: context)
-        _ = backlog.addBacklogItem(title: "Write conference abstract", notes: "Due in two weeks", tags: ["writing"])
+        _ = backlog.addBacklogItem(
+            title: "Write conference abstract", notes: "Due in two weeks", tags: ["writing"])
         _ = backlog.addBacklogItem(title: "Update Zotero collections")
         _ = backlog.addBacklogItem(title: "Order reference texts")
 
@@ -304,7 +318,8 @@ struct VisualSnapshotTests {
             .padding(.top, 36)
             .background(Theme.Palette.surface)
         renderViaHostingWindow(
-            view, size: NSSize(width: 1000, height: 700), filename: "snapshot-backlog-add-button.png")
+            view, size: NSSize(width: 1000, height: 700),
+            filename: "snapshot-backlog-add-button.png")
     }
 
     @Test
@@ -456,7 +471,8 @@ struct VisualSnapshotTests {
         .padding(24)
         .background(Theme.Palette.surface)
         renderViaHostingWindow(
-            view, size: NSSize(width: 600, height: 120), filename: "snapshot-completion-filter-off.png")
+            view, size: NSSize(width: 600, height: 120),
+            filename: "snapshot-completion-filter-off.png")
     }
 
     @Test
@@ -469,7 +485,8 @@ struct VisualSnapshotTests {
         .padding(24)
         .background(Theme.Palette.surface)
         renderViaHostingWindow(
-            view, size: NSSize(width: 600, height: 180), filename: "snapshot-completion-filter-parent-on.png")
+            view, size: NSSize(width: 600, height: 180),
+            filename: "snapshot-completion-filter-parent-on.png")
     }
 
     @Test
@@ -482,7 +499,8 @@ struct VisualSnapshotTests {
         .padding(24)
         .background(Theme.Palette.surface)
         renderViaHostingWindow(
-            view, size: NSSize(width: 600, height: 260), filename: "snapshot-completion-filter-both-on.png")
+            view, size: NSSize(width: 600, height: 260),
+            filename: "snapshot-completion-filter-both-on.png")
     }
 
     /// After Clear Data the day subtree rebuilds against a fresh empty `Day`
@@ -512,6 +530,122 @@ struct VisualSnapshotTests {
             .background(Theme.Palette.surface)
         renderViaHostingWindow(
             view, size: NSSize(width: 1180, height: 1100), filename: "snapshot-cleared-today.png")
+    }
+
+    /// F4 + F2 + F3 together at a realistic (not artificially tall) window:
+    /// the date/saying header sits at the top line, the three sections are
+    /// pulled up, and the schedule fills the window height (scrolling
+    /// internally) instead of the whole page scrolling.
+    @Test
+    func captureTodayRealisticWindowFillsAndScrolls() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        let scheduleService = ScheduleService(context: context)
+        let manuscript = taskService.addBrainDumpItem(
+            title: "Finalize Manuscript Revision", on: day)
+        try taskService.escalate(manuscript, on: day)
+        _ = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
+        _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
+        _ = try scheduleService.schedule(
+            manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+
+        let view = AppShell()
+            .environment(\.modelContext, context)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1440, height: 900), filename: "feature-today-realistic.png")
+    }
+
+    /// F2: at a short height the schedule grid scrolls inside its card
+    /// (Google-Calendar day view), showing only the top of the day window.
+    @Test
+    func captureScheduleSectionScrollsAtShortHeight() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        let scheduleService = ScheduleService(context: context)
+        let manuscript = taskService.addBrainDumpItem(
+            title: "Finalize Manuscript Revision", on: day)
+        _ = try scheduleService.schedule(
+            manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+
+        let view = ScheduleSection(day: day, isReadOnly: false)
+            .environment(\.modelContext, context)
+            .padding(24)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 640, height: 520),
+            filename: "feature-schedule-scrolls.png")
+    }
+
+    /// F1: the TimeBlockSheet pre-filled with the default the "Schedule" menu
+    /// computes for a current time of 8:13 AM — the start clock should read
+    /// 8:15 AM (rounded up to the next 15-minute step).
+    @Test
+    func captureTimeBlockSheetDefaultStartForCurrentTime() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+        let state = AppState(
+            context: context, now: { TestDate.at(2026, 5, 22, hour: 8, minute: 13) },
+            wiseSaying: WiseSaying(quote: "x", author: "y"), defaults: defaults)
+        let start = state.defaultScheduleStartMinute(occupied: [])
+        #expect(start == 8 * 60 + 15)
+
+        let view = TimeBlockSheet(
+            initialStartMinute: start,
+            initialDurationMinutes: 60,
+            dayStartHour: state.dayStartHour,
+            dayEndHour: state.dayEndHour,
+            onConfirm: { _, _, _ in },
+            onCancel: {}
+        )
+        .environment(\.modelContext, context)
+        .padding(40)
+        .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 540, height: 420),
+            filename: "feature-timeblock-default-start.png")
+    }
+
+    /// Layout goal (toggle-on-traffic-light-line + tabs aligned to title):
+    /// renders the Tasks tab through the *real* AppShell with the sidebar
+    /// visible, so the "Tasks" header top can be compared against the sidebar's
+    /// "Daily Timebox Planner" title top. Borderless render has no macOS
+    /// traffic-lights — the toggle-vs-traffic-light alignment is verified on the
+    /// real app, not here.
+    @Test
+    func captureTasksFullApp() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let today = Date().startOfLocalDay()
+        let day = DayService(context: context).day(for: today)
+        let taskService = TaskService(context: context)
+        _ = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+        _ = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
+
+        let view = AppShell(initialDestination: .tasks)
+            .environment(\.modelContext, context)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1440, height: 900), filename: "feature-tasks-full-app.png")
+    }
+
+    /// Same alignment check for the Backlog tab through the real AppShell.
+    @Test
+    func captureBacklogFullApp() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let backlog = BacklogService(context: context)
+        _ = backlog.addBacklogItem(
+            title: "Write conference abstract", notes: "Due in two weeks", tags: ["writing"])
+        _ = backlog.addBacklogItem(title: "Update Zotero collections")
+
+        let view = AppShell(initialDestination: .backlog)
+            .environment(\.modelContext, context)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1440, height: 900), filename: "feature-backlog-full-app.png")
     }
 
     // MARK: - Rendering

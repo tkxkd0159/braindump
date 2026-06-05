@@ -6,6 +6,7 @@ public struct Top3Section: View {
     let day: Day
     let isReadOnly: Bool
     let openDetail: ((TaskDetailFocus) -> Void)?
+    let onSchedule: ((TaskItem) -> Void)?
 
     @State private var hoveredID: UUID?
     @State private var expandedIDs: Set<UUID> = []
@@ -13,11 +14,13 @@ public struct Top3Section: View {
     public init(
         day: Day,
         isReadOnly: Bool,
-        openDetail: ((TaskDetailFocus) -> Void)? = nil
+        openDetail: ((TaskDetailFocus) -> Void)? = nil,
+        onSchedule: ((TaskItem) -> Void)? = nil
     ) {
         self.day = day
         self.isReadOnly = isReadOnly
         self.openDetail = openDetail
+        self.onSchedule = onSchedule
     }
 
     private var top3Items: [TaskItem?] {
@@ -50,6 +53,7 @@ public struct Top3Section: View {
                             isHovered: item.map { hoveredID == $0.id } ?? false,
                             isExpanded: item.map { expandedIDs.contains($0.id) } ?? false,
                             openDetail: openDetail,
+                            onSchedule: onSchedule,
                             onHoverChange: { inside in
                                 guard let item else { return }
                                 if inside {
@@ -110,6 +114,7 @@ struct Top3SlotRow: View {
     let isHovered: Bool
     let isExpanded: Bool
     let openDetail: ((TaskDetailFocus) -> Void)?
+    var onSchedule: ((TaskItem) -> Void)? = nil
     let onHoverChange: (Bool) -> Void
     let onTapToggle: () -> Void
 
@@ -199,6 +204,9 @@ struct Top3SlotRow: View {
         }
         .contextMenu {
             if !isReadOnly {
+                Button("Schedule") {
+                    onSchedule?(item)
+                }
                 Button("Move to Brain Dump") {
                     taskService.deescalate(item, on: day)
                 }

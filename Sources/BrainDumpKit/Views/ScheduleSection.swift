@@ -47,9 +47,16 @@ public struct ScheduleSection: View {
         if day.modelContext != nil {
             VStack(alignment: .leading, spacing: 0) {
                 header
-                gridBody
+                // Google-Calendar-style day view: the hour grid scrolls inside
+                // the card while the card itself fills the column height, so it
+                // stays usable as the window is resized.
+                ScrollView(.vertical, showsIndicators: true) {
+                    gridBody
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
             .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Theme.Palette.surfaceContainerLowest)
             .overlay(
                 Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1)
