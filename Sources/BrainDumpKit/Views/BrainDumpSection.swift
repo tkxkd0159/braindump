@@ -63,11 +63,7 @@ public struct BrainDumpSection: View {
                         .font(Theme.Font.caption)
                         .foregroundStyle(Theme.Palette.secondary)
                 }
-                // The inline creator is pinned above the scroll region so it's
-                // always reachable, even when the dump holds many items.
-                if !isReadOnly {
-                    addRow
-                }
+
                 ScrollView(.vertical, showsIndicators: true) {
                     VStack(spacing: 12) {
                         ForEach(brainDumpItems, id: \.id) { item in
@@ -116,6 +112,7 @@ public struct BrainDumpSection: View {
                         .foregroundStyle(Theme.Palette.onSurfaceVariant)
                 }
                 .buttonStyle(.plain)
+                .keyboardShortcut("t", modifiers: [.command])
                 .help("Add brain-dump item")
             }
         }
@@ -224,68 +221,6 @@ public struct BrainDumpSection: View {
             .font(Theme.Font.bodyMd)
             .strikethrough(completed)
             .foregroundStyle(completed ? Theme.Palette.outline : Theme.Palette.onSurface)
-    }
-
-    private var addRow: some View {
-        let isFocused = addFocus != nil
-        let shouldExpand =
-            isFocused || !newNotes.isEmpty || !newTags.isEmpty || !newTagDraft.isEmpty
-
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 14) {
-                TextField("Add new task…", text: $newTitle)
-                    .textFieldStyle(.plain)
-                    .font(Theme.Font.bodyMd)
-                    .foregroundStyle(Theme.Palette.onSurface)
-                    .focused($addFocus, equals: .title)
-                    .onSubmit(submitNew)
-                    .onKeyPress(.escape) { handleEscape() }
-                Spacer(minLength: 0)
-            }
-            if shouldExpand {
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("Description", text: $newNotes)
-                        .textFieldStyle(.plain)
-                        .font(Theme.Font.bodyMd)
-                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                        .padding(8)
-                        .background(Theme.Palette.surfaceContainer)
-                        .overlay(
-                            Rectangle().strokeBorder(Theme.Palette.outlineVariant, lineWidth: 1)
-                        )
-                        .focused($addFocus, equals: .notes)
-                        .onSubmit(submitNew)
-                        .onKeyPress(.escape) { handleEscape() }
-                    TagInputField(
-                        tags: $newTags,
-                        draft: $newTagDraft,
-                        allKnownTags: taskService.allTags(),
-                        isCompact: true
-                    )
-                    HStack(spacing: 6) {
-                        Spacer(minLength: 0)
-                        Button("Save", action: submitNew)
-                            .buttonStyle(.plain)
-                            .font(Theme.Font.labelMd)
-                            .padding(.horizontal, 12)
-                            .frame(height: 28)
-                            .foregroundStyle(Theme.Palette.onPrimary)
-                            .background(Theme.Palette.primary)
-                            .disabled(
-                                newTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                }
-            }
-        }
-        .padding(14)
-        .background(Theme.Palette.surfaceContainerLowest)
-        .overlay(
-            Rectangle()
-                .strokeBorder(
-                    isFocused ? Theme.Palette.primary : Theme.Palette.outlineVariant,
-                    lineWidth: 1
-                )
-        )
     }
 
     private func submitNew() {

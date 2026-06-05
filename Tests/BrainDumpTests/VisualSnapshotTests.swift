@@ -289,7 +289,8 @@ struct VisualSnapshotTests {
         Fonts.registerIfNeeded()
         let context = try InMemoryStore.makeContext()
         let backlog = BacklogService(context: context)
-        _ = backlog.addBacklogItem(title: "Write conference abstract", notes: "Due in two weeks", tags: ["writing"])
+        _ = backlog.addBacklogItem(
+            title: "Write conference abstract", notes: "Due in two weeks", tags: ["writing"])
         _ = backlog.addBacklogItem(title: "Update Zotero collections")
         _ = backlog.addBacklogItem(title: "Order reference texts")
 
@@ -304,7 +305,8 @@ struct VisualSnapshotTests {
             .padding(.top, 36)
             .background(Theme.Palette.surface)
         renderViaHostingWindow(
-            view, size: NSSize(width: 1000, height: 700), filename: "snapshot-backlog-add-button.png")
+            view, size: NSSize(width: 1000, height: 700),
+            filename: "snapshot-backlog-add-button.png")
     }
 
     @Test
@@ -456,7 +458,8 @@ struct VisualSnapshotTests {
         .padding(24)
         .background(Theme.Palette.surface)
         renderViaHostingWindow(
-            view, size: NSSize(width: 600, height: 120), filename: "snapshot-completion-filter-off.png")
+            view, size: NSSize(width: 600, height: 120),
+            filename: "snapshot-completion-filter-off.png")
     }
 
     @Test
@@ -469,7 +472,8 @@ struct VisualSnapshotTests {
         .padding(24)
         .background(Theme.Palette.surface)
         renderViaHostingWindow(
-            view, size: NSSize(width: 600, height: 180), filename: "snapshot-completion-filter-parent-on.png")
+            view, size: NSSize(width: 600, height: 180),
+            filename: "snapshot-completion-filter-parent-on.png")
     }
 
     @Test
@@ -482,7 +486,8 @@ struct VisualSnapshotTests {
         .padding(24)
         .background(Theme.Palette.surface)
         renderViaHostingWindow(
-            view, size: NSSize(width: 600, height: 260), filename: "snapshot-completion-filter-both-on.png")
+            view, size: NSSize(width: 600, height: 260),
+            filename: "snapshot-completion-filter-both-on.png")
     }
 
     /// After Clear Data the day subtree rebuilds against a fresh empty `Day`
@@ -525,37 +530,18 @@ struct VisualSnapshotTests {
         let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
         let taskService = TaskService(context: context)
         let scheduleService = ScheduleService(context: context)
-        let manuscript = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+        let manuscript = taskService.addBrainDumpItem(
+            title: "Finalize Manuscript Revision", on: day)
         try taskService.escalate(manuscript, on: day)
         _ = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
         _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
-        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+        _ = try scheduleService.schedule(
+            manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
 
         let view = AppShell()
             .environment(\.modelContext, context)
         renderViaHostingWindow(
             view, size: NSSize(width: 1440, height: 900), filename: "feature-today-realistic.png")
-    }
-
-    /// F3: with many brain-dump items the "Add new task…" creator stays pinned
-    /// at the top while the items scroll beneath it (only the first few show).
-    @Test
-    func captureBrainDumpManyItemsAddRowPinnedAtTop() throws {
-        Fonts.registerIfNeeded()
-        let context = try InMemoryStore.makeContext()
-        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
-        let taskService = TaskService(context: context)
-        for i in 1...14 {
-            _ = taskService.addBrainDumpItem(title: "Brain dump item number \(i)", on: day)
-        }
-
-        let view = BrainDumpSection(day: day, isReadOnly: false)
-            .environment(\.modelContext, context)
-            .padding(24)
-            .background(Theme.Palette.surface)
-        renderViaHostingWindow(
-            view, size: NSSize(width: 480, height: 520),
-            filename: "feature-braindump-addrow-pinned.png")
     }
 
     /// F2: at a short height the schedule grid scrolls inside its card
@@ -567,8 +553,10 @@ struct VisualSnapshotTests {
         let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
         let taskService = TaskService(context: context)
         let scheduleService = ScheduleService(context: context)
-        let manuscript = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
-        _ = try scheduleService.schedule(manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
+        let manuscript = taskService.addBrainDumpItem(
+            title: "Finalize Manuscript Revision", on: day)
+        _ = try scheduleService.schedule(
+            manuscript, on: day, startMinute: 9 * 60, durationMinutes: 120)
 
         let view = ScheduleSection(day: day, isReadOnly: false)
             .environment(\.modelContext, context)
