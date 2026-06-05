@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 public struct TasksScreen: View {
     @Environment(\.modelContext) private var context
@@ -8,7 +8,8 @@ public struct TasksScreen: View {
     @State private var selectedTag: String?
     @State private var useDateRange: Bool = false
     @State private var useSpecificDateRange: Bool = false
-    @State private var fromDate: Date = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
+    @State private var fromDate: Date = Calendar.current.date(
+        byAdding: .day, value: -7, to: Date())!
     @State private var toDate: Date = Date()
     @State private var detailFocus: TaskDetailFocus?
 
@@ -20,7 +21,9 @@ public struct TasksScreen: View {
         let range: ClosedRange<Date>? = {
             guard useDateRange, useSpecificDateRange else { return nil }
             let lo = fromDate.startOfLocalDay()
-            let hi = Calendar.current.date(byAdding: .day, value: 1, to: toDate.startOfLocalDay())?.addingTimeInterval(-1) ?? toDate
+            let hi =
+                Calendar.current.date(byAdding: .day, value: 1, to: toDate.startOfLocalDay())?
+                .addingTimeInterval(-1) ?? toDate
             guard lo <= hi else { return nil }
             return lo...hi
         }()
@@ -155,7 +158,9 @@ public struct TasksScreen: View {
                         Text(item.title)
                             .font(Theme.Font.bodyLgSemibold)
                             .strikethrough(isCompleted)
-                            .foregroundStyle(isCompleted ? Theme.Palette.outline : Theme.Palette.onSurface)
+                            .foregroundStyle(
+                                isCompleted ? Theme.Palette.outline : Theme.Palette.onSurface
+                            )
                             .multilineTextAlignment(.leading)
                         if !item.notes.isEmpty {
                             Text(item.notes)
@@ -221,14 +226,14 @@ struct CompletionDateFilter: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Toggle("Filter by completion date", isOn: $useDateRange)
+            Toggle("Completed Only", isOn: $useDateRange)
                 .font(Theme.Font.labelMd)
                 .tracking(0.5)
                 .toggleStyle(.checkbox)
                 .foregroundStyle(Theme.Palette.onSurfaceVariant)
             if useDateRange {
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Specific date range", isOn: $useSpecificDateRange)
+                    Toggle("Date Range", isOn: $useSpecificDateRange)
                         .font(Theme.Font.labelMd)
                         .tracking(0.5)
                         .toggleStyle(.checkbox)

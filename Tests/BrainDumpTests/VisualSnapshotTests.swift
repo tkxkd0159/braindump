@@ -178,6 +178,19 @@ struct VisualSnapshotTests {
         #expect(AppShell.sidebarThreshold == 1248)
     }
 
+    /// Chrome contract for the Reminders-style toggle row. `contentTopInset` is
+    /// the single inset the sidebar title and every tab's content both use, so
+    /// their tops line up. `toolbarLeadingInset` must clear the macOS
+    /// traffic-light cluster (close/min/zoom right edge ≈ x69 with
+    /// `.hiddenTitleBar`) so the toggle never overlaps it, and the toggle must
+    /// stay on the traffic-light line (centered near y16), not drift downward.
+    @Test
+    func toolbarChromeMetricsAlignContentAndClearTrafficLights() {
+        #expect(AppShell.contentTopInset == 28)
+        #expect(AppShell.toolbarLeadingInset >= 70)
+        #expect((0...16).contains(Int(AppShell.toolbarTopInset)))
+    }
+
     /// When the window is wider than the previous 1280 cap, the canvas
     /// must fill the available width instead of leaving empty space on
     /// the right.
@@ -595,6 +608,44 @@ struct VisualSnapshotTests {
         renderViaHostingWindow(
             view, size: NSSize(width: 540, height: 420),
             filename: "feature-timeblock-default-start.png")
+    }
+
+    /// Layout goal (toggle-on-traffic-light-line + tabs aligned to title):
+    /// renders the Tasks tab through the *real* AppShell with the sidebar
+    /// visible, so the "Tasks" header top can be compared against the sidebar's
+    /// "Daily Timebox Planner" title top. Borderless render has no macOS
+    /// traffic-lights — the toggle-vs-traffic-light alignment is verified on the
+    /// real app, not here.
+    @Test
+    func captureTasksFullApp() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let today = Date().startOfLocalDay()
+        let day = DayService(context: context).day(for: today)
+        let taskService = TaskService(context: context)
+        _ = taskService.addBrainDumpItem(title: "Finalize Manuscript Revision", on: day)
+        _ = taskService.addBrainDumpItem(title: "Email literature review to Dr. Aris", on: day)
+
+        let view = AppShell(initialDestination: .tasks)
+            .environment(\.modelContext, context)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1440, height: 900), filename: "feature-tasks-full-app.png")
+    }
+
+    /// Same alignment check for the Backlog tab through the real AppShell.
+    @Test
+    func captureBacklogFullApp() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let backlog = BacklogService(context: context)
+        _ = backlog.addBacklogItem(
+            title: "Write conference abstract", notes: "Due in two weeks", tags: ["writing"])
+        _ = backlog.addBacklogItem(title: "Update Zotero collections")
+
+        let view = AppShell(initialDestination: .backlog)
+            .environment(\.modelContext, context)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1440, height: 900), filename: "feature-backlog-full-app.png")
     }
 
     // MARK: - Rendering
