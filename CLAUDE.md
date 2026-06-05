@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Brain Dump** is a macOS To Do app modeled on the Harvard Business Review Daily Timebox planner. Each day is a single sheet with three sections — **Brain Dump**, **Top 3**, and an hour-blocked **Schedule** — and uncompleted items roll forward to the next day's brain dump automatically.
 
-> The repo directory is still named `todoosx/` (original codename); the app and all Swift targets are `BrainDump` / `BrainDumpKit`.
+> The git repo directory is `braindump` (original codename: `todoosx`); the app and all Swift targets are `BrainDump` / `BrainDumpKit`.
 
 UI aesthetic guidance ("Neo-Academic" — deep navy + crimson, Hanken Grotesk + Source Serif 4, thin borders, no heavy shadows) is in `docs/design-system.md`.
 
@@ -33,6 +33,7 @@ swift test --filter <name>        # run a single test (substring match on @Test 
 ```bash
 ./scripts/run-app.sh              # xcodebuild build + open BrainDump.app
 CONFIG=Release ./scripts/run-app.sh
+./scripts/build-dmg.sh            # Release .app → unsigned .dmg (needs `brew install create-dmg`)
 ```
 
 ## Architecture
@@ -41,27 +42,29 @@ CONFIG=Release ./scripts/run-app.sh
 Package.swift             ← library + tests only (no executable target)
 BrainDump.xcodeproj/      ← macOS app target; depends on local SPM package for BrainDumpKit
 BrainDump/                ← app target sources
-  BrainDumpApp.swift      ← @main; configures ModelContainer
+  BrainDumpApp.swift      ← @main; bootstraps the store via PersistenceController.makeContainer()
   Info.plist              ← bundle metadata (uses $(PRODUCT_NAME) etc. for xcodebuild substitution)
   AppIcon.icns
 Sources/
-  BrainDumpKit/           ← library: models, services, AppState, views
-    Models/               ← SwiftData @Model classes + TodoError + drag payload
-    Services/             ← Day/Task/Schedule services (business logic)
-    App/                  ← AppState (@Observable, owns selected date)
-    Views/                ← SwiftUI views — AppShell + DayView, three section views (Top3/BrainDump/Schedule), TimeBlockSheet, TaskDetailSheet, SettingsSheet, MonthCalendarView, supporting chips/rows
-    Support/              ← Date+StartOfDay, TimeFormat, Theme, Fonts, WiseSayings
+  BrainDumpKit/           ← library: models, persistence, services, AppState, views
+    Models/               ← @Model classes (Day, TaskItem, ScheduleEntry) + TodoError + drag payload
+    Persistence/          ← PersistenceController (corruption-recovering container) + versioned schema & migration plan
+    Services/             ← Day / Task / Schedule / Backlog / Backup services (business logic)
+    App/                  ← AppState (@Observable; owns selected date + sidebar destination)
+    Views/                ← AppShell (sidebar + canvas), DayView + sections (Top3/BrainDump/Schedule), Tasks/Backlog screens, TimeBlockSheet, TaskDetailSheet, SettingsSheet, MonthCalendarView, tag/chip/row helpers
+    Support/              ← Date+StartOfDay, TimeFormat, ScheduleDefaults, Theme, Fonts, WiseSayings
 Tests/
-  BrainDumpTests/         ← Swift Testing target (XCTest is NOT used)
-    TestSupport/          ← InMemoryStore + TestDate helpers
+  BrainDumpTests/         ← Swift Testing target (XCTest is NOT used); VisualSnapshotTests renders PNGs
+    TestSupport/          ← InMemoryStore + FileBackedStore (on-disk) + TestDate helpers
 ```
 
 **The shape that matters:**
 
 - **Three SwiftData entities**: `Day`, `TaskItem`, `ScheduleEntry`. `Day` has a unique `date` (start-of-day-normalized), and owns items and schedule entries via cascade relationships. A `TaskItem` belongs to one `Day` (its brain-dump day). A `ScheduleEntry` is a **placement** — distinct from the item itself — so an item can be in brain dump *and* in the schedule without being copied.
 - **Top 3 is an ordered id list on `Day`** (`top3ItemIDs: [UUID]`), not a relationship. Order matters; max 3 items.
+- **Backlog is not a fourth entity** — it's `TaskItem.isBacklog == true` with `day == nil`. `BacklogService` promotes a backlog item into a day's brain dump (`promoteToBrainDump`) or sends one back (`moveToBacklog`, which also strips it from top 3 and deletes its schedule entries). Items also carry `notes` and a normalized `tags: [String]` (trimmed, lowercased, deduped); `TaskService.allTags()` is the global tag vocabulary, and `searchTasks(...)` powers the Tasks screen.
 - **All business logic lives in services**, never in views. Views construct a service inline from the `ModelContext`. Tests exercise services directly against an in-memory `ModelContainer` (`TestSupport/InMemoryStore.swift`).
-- **`AppState` is the only orchestrator** above the service layer. It owns `selectedDate`, runs `rollover` on init, and is created lazily by `AppShell` in `.onAppear` so it has access to the environment's `modelContext`.
+- **`AppState` is the only orchestrator** above the service layer. It owns `selectedDate`, runs `rollover` on init, and is created lazily by `AppShell` in `.onAppear` so it has access to the environment's `modelContext`. It also owns `selectedDestination` (`SidebarDestination`: `today`/`tasks`/`backlog` — the app is a sidebar shell, not one day view) and `dataGeneration` (bumped on every wipe/restore; see Clear Data below).
 - **App-level settings** live on `AppState`: `dayStartHour`/`dayEndHour` (default 5/22, persisted to `UserDefaults`, validated to span ≥ 4 hours) and `isSidebarVisible` (in-memory only). Views read these directly; there's no separate settings object.
 
 ## Non-obvious behavior
@@ -77,6 +80,14 @@ Tests/
 
 **Drag payload.** `TaskItemDragPayload` is a tiny `Codable` + `Transferable` wrapper around the item's UUID. Brain-dump and top-3 rows are `.draggable(...)`. Empty schedule slots are `.dropDestination(for: TaskItemDragPayload.self)`. On drop, `ScheduleSection` opens a `TimeBlockSheet` (Reminders-style start/end `DatePicker`s, 15-min snap); the actual `schedule(...)` call happens after the sheet confirms.
 
+**Never crashes on launch.** `PersistenceController.makeContainer()` opens the versioned store (`BrainDumpSchemaV1` via `BrainDumpMigrationPlan`); on failure it moves the unreadable store and its `-wal`/`-shm` sidecars aside (`BrainDump.store.corrupt-<unixstamp>`, **preserved, not deleted**) and retries fresh; last resort is an in-memory container. The outcome is a `StoreRecovery` value surfaced once as an alert in `AppShell`. Store path: `~/Library/Application Support/BrainDump/BrainDump.store`. Schema changes go through a new `MigrationStage` in `BrainDumpMigrationPlan` — never an ad-hoc model edit.
+
+**Clear Data / restore rebuild.** `clearAllData` and `importBackup` wipe content but **preserve preferences** (day bounds), snap navigation to Today, and bump `AppState.dataGeneration`. That counter is folded into `DayView`'s identity (`.id(state.dataGeneration)`) so the subtree rebuilds against fresh models instead of re-rendering against just-deleted ones — the fix for the SwiftData Clear-Data crash. Its regression test (`ClearDataCrashTests`) uses the on-disk `FileBackedStore`; `InMemoryStore` doesn't reproduce the deletion timing.
+
+**Backup is versioned JSON.** `BackupService` encodes a `BackupSnapshot { version, days, backlogItems }` of plain DTOs (ISO-8601 dates) and restores **replace-all**. Malformed input throws `BackupError.malformed`; a version mismatch throws `.unsupportedVersion`. Reached via `AppState.exportBackupData()` / `importBackup(from:)`; UI is in `SettingsSheet`.
+
+**Sidebar auto-collapse.** `AppShell` hides the sidebar when the window is narrower than `sidebarThreshold` (= `canvasMin + sidebarWidth`) **without** mutating the user's `isSidebarVisible` preference, so it returns when the window grows. ⌘B toggles the preference.
+
 ## Conventions
 
 - **Public surface on `BrainDumpKit`**: types referenced from the `BrainDump` app target must be `public`. Tests use `@testable import BrainDumpKit` for internal access but the app target consumes the public surface only.
@@ -84,6 +95,7 @@ Tests/
 - **Test dates** are constructed via `TestDate.at(y, m, d, hour:, minute:)` so they're deterministic across machines and time zones.
 - **Date normalization**: every `Date` that flows into a `Day.date` is run through `Date.startOfLocalDay()`. The unique constraint on `Day.date` depends on this; don't bypass it.
 - **Tests live next to the code they exercise** (one file per service / per major concept). When extending a service, append `@Test` functions to the matching `*Tests.swift` file rather than creating a new file.
+- **Visual checks are snapshot tests.** `VisualSnapshotTests` renders SwiftUI through an offscreen `NSWindow` + `NSHostingView` (not `ImageRenderer`, which collapses `ScrollView`s/`TextField`s) and writes PNGs to `/tmp/braindump-shots/`. To satisfy the "check UI with screenshot tests" rule below, add/extend a `@Test` there and inspect the PNG.
 - **Adding files to the app target**: drop them in `BrainDump/` and add the reference in Xcode (or by hand in `BrainDump.xcodeproj/project.pbxproj`). Library code belongs under `Sources/BrainDumpKit/` and is picked up automatically by SwiftPM.
 
 ## Toolchain notes
