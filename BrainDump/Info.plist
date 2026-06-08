@@ -26,5 +26,13 @@
     <true/>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
+    <key>SUFeedURL</key>
+    <string>https://github.com/tkxkd0159/braindump/releases/latest/download/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>Ddt9VbrkhTXay6qIgcDALBobaj2lZxNxfWwM2vNglyU=</string>
+    <key>SUScheduledCheckInterval</key>
+    <integer>86400</integer>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
 </dict>
 </plist>
