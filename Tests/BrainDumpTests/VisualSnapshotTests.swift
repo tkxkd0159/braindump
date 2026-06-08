@@ -437,6 +437,30 @@ struct VisualSnapshotTests {
     }
 
     @Test
+    func captureSettingsSheetHasSoftwareUpdateNavItem() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+        let state = AppState(
+            context: context,
+            now: { TestDate.at(2026, 5, 22) },
+            wiseSaying: WiseSaying(quote: "x", author: "y"),
+            defaults: defaults
+        )
+        let view = SettingsSheet(
+            state: state,
+            updateModel: AppUpdateModel(isUpdaterAvailable: true, canCheckForUpdates: true),
+            dismiss: {}
+        )
+        .environment(\.modelContext, context)
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: 820, height: 540),
+            filename: "snapshot-settings-update-nav.png"
+        )
+    }
+
+    @Test
     func captureUpdatesSettingsAvailable() throws {
         Fonts.registerIfNeeded()
         let model = AppUpdateModel(

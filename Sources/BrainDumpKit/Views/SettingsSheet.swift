@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 public struct SettingsSheet: View {
     @Bindable var state: AppState
+    @Bindable var updateModel: AppUpdateModel
     let dismiss: () -> Void
 
     @State private var section: SettingsSection = .general
@@ -14,8 +15,13 @@ public struct SettingsSheet: View {
     @State private var showImportConfirmation: Bool = false
     @State private var backupError: String?
 
-    public init(state: AppState, dismiss: @escaping () -> Void) {
+    public init(
+        state: AppState,
+        updateModel: AppUpdateModel = AppUpdateModel(),
+        dismiss: @escaping () -> Void
+    ) {
         self.state = state
+        self.updateModel = updateModel
         self.dismiss = dismiss
         _startHour = State(initialValue: state.dayStartHour)
         _endHour = State(initialValue: state.dayEndHour)
@@ -38,6 +44,7 @@ public struct SettingsSheet: View {
             VStack(alignment: .leading, spacing: 2) {
                 navItem(.general, icon: "gearshape.fill", label: "General")
                 navItem(.notifications, icon: "bell.fill", label: "Notifications")
+                navItem(.updates, icon: "arrow.down.circle.fill", label: "Software Update")
             }
             .padding(.horizontal, 10)
             Spacer(minLength: 0)
@@ -140,6 +147,7 @@ public struct SettingsSheet: View {
         switch section {
         case .general: return "General Settings"
         case .notifications: return "Notifications"
+        case .updates: return "Software Update"
         }
     }
 
@@ -150,6 +158,8 @@ public struct SettingsSheet: View {
             generalSection
         case .notifications:
             notificationsSection
+        case .updates:
+            updatesSection
         }
     }
 
@@ -277,6 +287,10 @@ public struct SettingsSheet: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private var updatesSection: some View {
+        UpdatesSettingsView(model: updateModel)
+    }
+
     private func hourPicker(label: String, selection: Binding<Int>, range: ClosedRange<Int>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
@@ -362,5 +376,5 @@ public struct SettingsSheet: View {
 }
 
 private enum SettingsSection {
-    case general, notifications
+    case general, notifications, updates
 }
