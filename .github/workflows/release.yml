@@ -83,6 +83,9 @@ jobs:
         run: |
           set -euo pipefail
           SIG_LINE=$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$SPARKLE_BIN/sign_update" --ed-key-file - build/BrainDump.zip)
+          if ! printf '%s' "$SIG_LINE" | grep -q 'edSignature="'; then
+            echo "::error::sign_update did not return an edSignature: $SIG_LINE"; exit 1
+          fi
           ED=$(printf '%s' "$SIG_LINE" | sed -E 's/.*edSignature="([^"]+)".*/\1/')
           PREV=""
           if gh release download --pattern appcast.xml --dir build/prev 2>/dev/null; then
