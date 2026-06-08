@@ -56,6 +56,47 @@ jobs:
             echo "::error::version mismatch: got '$GOT'"; exit 1
           fi
 
+      - name: Package zip for Sparkle
+        run: |
+          set -euo pipefail
+          APP=".build/xcode/Build/Products/Release/BrainDump.app"
+          ditto -c -k --keepParent "$APP" build/BrainDump.zip
+
+      - name: Fetch Sparkle tools
+        env:
+          SPARKLE_VERSION: "2.9.3" # keep in sync with the SPM dependency; bump if newer
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/sparkle.tar.xz \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          mkdir -p /tmp/sparkle && tar -xJf /tmp/sparkle.tar.xz -C /tmp/sparkle
+          echo "SPARKLE_BIN=/tmp/sparkle/bin" >> "$GITHUB_ENV"
+
+      - name: Sign update and build appcast
+        if: ${{ steps.ver.outputs.prerelease == 'false' }}
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          BUILD: ${{ github.run_number }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          SIG_LINE=$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$SPARKLE_BIN/sign_update" --ed-key-file - build/BrainDump.zip)
+          ED=$(printf '%s' "$SIG_LINE" | sed -E 's/.*edSignature="([^"]+)".*/\1/')
+          PREV=""
+          if gh release download --pattern appcast.xml --dir build/prev 2>/dev/null; then
+            PREV="build/prev/appcast.xml"
+          fi
+          python3 scripts/make-appcast.py \
+            --prev "$PREV" \
+            --version "$VERSION" --build "$BUILD" --tag "$TAG" \
+            --zip build/BrainDump.zip --signature "$ED" \
+            --min-system 14.0 \
+            --out build/appcast.xml
+          xmllint --noout build/appcast.xml
+          test -n "$ED"
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -71,4 +112,8 @@ jobs:
           if [[ "${{ steps.ver.outputs.prerelease }}" == "true" ]]; then
             flags+=(--prerelease)
           fi
-          gh release create "$GITHUB_REF_NAME" build/BrainDump.dmg "${flags[@]}"
+          assets=(build/BrainDump.dmg)
+          if [[ "${{ steps.ver.outputs.prerelease }}" == "false" ]]; then
+            assets+=(build/BrainDump.zip build/appcast.xml)
+          fi
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" "${flags[@]}"
