@@ -437,6 +437,37 @@ struct VisualSnapshotTests {
     }
 
     @Test
+    func captureUpdatesSettingsAvailable() throws {
+        Fonts.registerIfNeeded()
+        let model = AppUpdateModel(
+            isUpdaterAvailable: true,
+            canCheckForUpdates: true,
+            automaticallyChecksForUpdates: true,
+            lastUpdateCheckDate: TestDate.at(2026, 6, 8, hour: 9, minute: 30),
+            shortVersion: "0.1.2",
+            buildVersion: "123"
+        )
+        let view = UpdatesSettingsView(model: model)
+            .frame(width: 560, height: 400)
+            .background(Theme.Palette.surfaceContainerLowest)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 560, height: 400),
+            filename: "snapshot-updates-available.png")
+    }
+
+    @Test
+    func captureUpdatesSettingsUnavailable() throws {
+        Fonts.registerIfNeeded()
+        let model = AppUpdateModel()   // default: isUpdaterAvailable == false
+        let view = UpdatesSettingsView(model: model)
+            .frame(width: 560, height: 300)
+            .background(Theme.Palette.surfaceContainerLowest)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 560, height: 300),
+            filename: "snapshot-updates-unavailable.png")
+    }
+
+    @Test
     func captureTaskDetailSheetEdit() throws {
         Fonts.registerIfNeeded()
         let context = try InMemoryStore.makeContext()
