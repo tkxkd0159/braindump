@@ -7,12 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		33EB0C862FD67D3B0012AFBB /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 33EB0C852FD67D3B0012AFBB /* Sparkle */; };
+		33EB0C882FD6849C0012AFBB /* SparkleUpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33EB0C872FD6849C0012AFBB /* SparkleUpdaterController.swift */; };
 		BD0000000000000000000010 /* BrainDumpApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0000000000000000000003 /* BrainDumpApp.swift */; };
 		BD0000000000000000000011 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = BD0000000000000000000005 /* AppIcon.icns */; };
 		BD0000000000000000000012 /* BrainDumpKit in Frameworks */ = {isa = PBXBuildFile; productRef = BD0000000000000000000020 /* BrainDumpKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		33EB0C872FD6849C0012AFBB /* SparkleUpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrainDump/SparkleUpdaterController.swift; sourceTree = "<group>"; };
 		BD0000000000000000000002 /* BrainDump.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BrainDump.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD0000000000000000000003 /* BrainDumpApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrainDumpApp.swift; sourceTree = "<group>"; };
 		BD0000000000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -25,6 +28,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BD0000000000000000000012 /* BrainDumpKit in Frameworks */,
+				33EB0C862FD67D3B0012AFBB /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -34,6 +38,7 @@
 		BD0000000000000000000040 = {
 			isa = PBXGroup;
 			children = (
+				33EB0C872FD6849C0012AFBB /* SparkleUpdaterController.swift */,
 				BD0000000000000000000041 /* BrainDump */,
 				BD0000000000000000000042 /* Products */,
 			);
@@ -75,6 +80,7 @@
 			name = BrainDump;
 			packageProductDependencies = (
 				BD0000000000000000000020 /* BrainDumpKit */,
+				33EB0C852FD67D3B0012AFBB /* Sparkle */,
 			);
 			productName = BrainDump;
 			productReference = BD0000000000000000000002 /* BrainDump.app */;
@@ -106,6 +112,7 @@
 			mainGroup = BD0000000000000000000040;
 			packageReferences = (
 				BD0000000000000000000021 /* XCLocalSwiftPackageReference "." */,
+				33EB0C842FD67D3B0012AFBB /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			productRefGroup = BD0000000000000000000042 /* Products */;
 			projectDirPath = "";
@@ -132,6 +139,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				33EB0C882FD6849C0012AFBB /* SparkleUpdaterController.swift in Sources */,
 				BD0000000000000000000010 /* BrainDumpApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -283,7 +291,23 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		33EB0C842FD67D3B0012AFBB /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.3;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
+		33EB0C852FD67D3B0012AFBB /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 33EB0C842FD67D3B0012AFBB /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
 		BD0000000000000000000020 /* BrainDumpKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = BrainDumpKit;

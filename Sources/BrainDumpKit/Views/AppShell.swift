@@ -7,6 +7,7 @@ public struct AppShell: View {
 
     private let storeRecovery: StoreRecovery
     private let initialDestination: SidebarDestination?
+    private let updateModel: AppUpdateModel
     @State private var showRecoveryNotice: Bool
 
     static let sidebarWidth: CGFloat = 256
@@ -29,10 +30,12 @@ public struct AppShell: View {
 
     public init(
         storeRecovery: StoreRecovery = .normal,
-        initialDestination: SidebarDestination? = nil
+        initialDestination: SidebarDestination? = nil,
+        updateModel: AppUpdateModel = AppUpdateModel()
     ) {
         self.storeRecovery = storeRecovery
         self.initialDestination = initialDestination
+        self.updateModel = updateModel
         _showRecoveryNotice = State(initialValue: storeRecovery.isRecovery)
     }
 
@@ -47,7 +50,7 @@ public struct AppShell: View {
                     let effectivelyVisible = state.isSidebarVisible && canFit
                     HStack(spacing: 0) {
                         if effectivelyVisible {
-                            Sidebar(state: state)
+                            Sidebar(state: state, updateModel: updateModel)
                                 .transition(.move(edge: .leading))
                         }
                         MainCanvas(state: state)
@@ -93,6 +96,7 @@ public struct AppShell: View {
 
 private struct Sidebar: View {
     @Bindable var state: AppState
+    let updateModel: AppUpdateModel
     @State private var showSettings: Bool = false
 
     var body: some View {
@@ -155,7 +159,7 @@ private struct Sidebar: View {
                 .frame(width: 1)
         }
         .sheet(isPresented: $showSettings) {
-            SettingsSheet(state: state, dismiss: { showSettings = false })
+            SettingsSheet(state: state, updateModel: updateModel, dismiss: { showSettings = false })
         }
     }
 }
