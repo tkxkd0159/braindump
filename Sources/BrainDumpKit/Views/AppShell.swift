@@ -19,14 +19,6 @@ public struct AppShell: View {
     // Top inset shared by the sidebar title and every tab's content, so each
     // tab's first row lines up with the "Daily Timebox Planner" title.
     static let contentTopInset: CGFloat = 28
-    // Reminders-style toolbar metrics for the floating sidebar toggle. With
-    // `.windowStyle(.hiddenTitleBar)` the macOS traffic-lights keep their
-    // standard frames — close/min/zoom span x≈9–69, vertically centered at
-    // y≈16 — so the toggle drops just to their right on the same line.
-    static let toolbarLeadingInset: CGFloat = 76
-    // 32pt toggle anchored at the top edge centers its glyph at y≈16, matching
-    // the traffic-light line. Kept explicit so it can be nudged independently.
-    static let toolbarTopInset: CGFloat = 0
 
     public init(
         storeRecovery: StoreRecovery = .normal,
@@ -57,19 +49,6 @@ public struct AppShell: View {
                     }
                     .animation(.easeInOut(duration: 0.18), value: effectivelyVisible)
                     .background(Theme.Palette.surface)
-                    // The sidebar toggle floats on the traffic-light line at a
-                    // fixed window position (Reminders-style) — outside the
-                    // sidebar/canvas split, so it stays put when the sidebar
-                    // shows/hides and never reserves space in the content.
-                    // `.hiddenTitleBar` keeps a full-size background but insets
-                    // layout below the title-bar band; ignoring the top safe
-                    // area lifts the toggle into that band, beside the lights.
-                    .overlay(alignment: .topLeading) {
-                        SidebarToggle(state: state)
-                            .padding(.leading, Self.toolbarLeadingInset)
-                            .padding(.top, Self.toolbarTopInset)
-                            .ignoresSafeArea(.container, edges: .top)
-                    }
                 }
                 .frame(minWidth: Self.canvasMin, minHeight: 760)
             } else {
@@ -218,30 +197,30 @@ private struct MainCanvas: View {
     @Bindable var state: AppState
 
     var body: some View {
-        switch state.selectedDestination {
-        case .today:
-            todayLayout
-        case .tasks:
-            scrolling {
-                TasksScreen()
-                    .padding(.horizontal, 64)
-                    .padding(.bottom, 48)
+        Group {
+            switch state.selectedDestination {
+            case .today:
+                todayLayout
+            case .tasks:
+                scrolling {
+                    TasksScreen()
+                        .padding(.horizontal, 64)
+                        .padding(.bottom, 48)
+                }
+            case .backlog:
+                scrolling {
+                    BacklogScreen(state: state)
+                        .padding(.horizontal, 64)
+                        .padding(.bottom, 48)
+                }
             }
-        case .backlog:
-            scrolling {
-                BacklogScreen(state: state)
-                    .padding(.horizontal, 64)
-                    .padding(.bottom, 48)
-            }
+        }
+        .overlay(alignment: .topLeading) {
+            SidebarToggle(state: state)
+                .padding(.leading, 16)
         }
     }
 
-    // Today fills the window: the date + wise-saying header sits at the top,
-    // its top lined up with the sidebar's "Daily Timebox Planner" title, and
-    // DayView takes all the remaining height, running its own internal scroll
-    // regions (brain dump + schedule). The sidebar toggle lives in AppShell's
-    // window overlay (traffic-light line), so nothing reserves space above the
-    // header here.
     private var todayLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
             DateHeader(state: state)
@@ -257,9 +236,6 @@ private struct MainCanvas: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    // Tasks / Backlog scroll the whole page. The header starts at the shared
-    // top inset so its title lines up with the sidebar title; the toggle no
-    // longer occupies a reserved row (it floats in AppShell's overlay).
     private func scrolling<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         ScrollView(.vertical, showsIndicators: false) {
             content()

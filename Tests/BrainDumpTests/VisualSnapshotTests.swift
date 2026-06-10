@@ -178,17 +178,11 @@ struct VisualSnapshotTests {
         #expect(AppShell.sidebarThreshold == 1248)
     }
 
-    /// Chrome contract for the Reminders-style toggle row. `contentTopInset` is
-    /// the single inset the sidebar title and every tab's content both use, so
-    /// their tops line up. `toolbarLeadingInset` must clear the macOS
-    /// traffic-light cluster (close/min/zoom right edge ≈ x69 with
-    /// `.hiddenTitleBar`) so the toggle never overlaps it, and the toggle must
-    /// stay on the traffic-light line (centered near y16), not drift downward.
+    /// `contentTopInset` is the single inset the sidebar title and every tab's
+    /// content both use, so their tops line up with the sidebar toggle button.
     @Test
-    func toolbarChromeMetricsAlignContentAndClearTrafficLights() {
+    func contentTopInsetAlignsSidebarTitleAndCanvasContent() {
         #expect(AppShell.contentTopInset == 28)
-        #expect(AppShell.toolbarLeadingInset >= 70)
-        #expect((0...16).contains(Int(AppShell.toolbarTopInset)))
     }
 
     /// When the window is wider than the previous 1280 cap, the canvas
