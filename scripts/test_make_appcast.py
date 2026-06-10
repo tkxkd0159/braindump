@@ -1,3 +1,5 @@
+import contextlib
+import io
 import os
 import subprocess
 import sys
@@ -7,7 +9,7 @@ import unittest
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
-from make_appcast import _parse_date, build_item, build_release_notes_html, sp
+from make_appcast import _parse_date, _read_changes, build_item, build_release_notes_html, sp
 
 DATE = datetime(2026, 6, 9, tzinfo=timezone.utc)
 REPO = "tkxkd0159/braindump"
@@ -43,6 +45,19 @@ class ReleaseNotesHTMLTests(unittest.TestCase):
 
     def test_pr_number_stripped(self):
         self.assertIn("<li>Add scroll layout</li>", notes(["feat: add scroll layout (#1)"]))
+
+    def test_pr_number_only_description_is_dropped(self):
+        out = notes(["feat: (#1)", "feat: real thing"])
+        self.assertNotIn("<li></li>", out)
+        self.assertIn("<li>Real thing</li>", out)
+
+    def test_dropped_commits_are_logged_to_stderr(self):
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            notes(["chore: bump deps", "feat: real"])
+        err = buf.getvalue()
+        self.assertIn("dropped", err)
+        self.assertIn("chore: bump deps", err)
 
     def test_scope_and_bang(self):
         self.assertIn("<li>Redesign sheet</li>", notes(["feat(ui)!: redesign sheet"]))
@@ -131,6 +146,19 @@ class ParseDateTests(unittest.TestCase):
     def test_empty_defaults_to_aware_utc_now(self):
         dt = _parse_date("")
         self.assertEqual(dt.tzinfo, timezone.utc)
+
+
+class ReadChangesTests(unittest.TestCase):
+    def test_missing_or_empty_path_returns_empty_list(self):
+        self.assertEqual(_read_changes(""), [])
+        self.assertEqual(_read_changes("/no/such/file.txt"), [])
+
+    def test_reads_one_subject_per_line_incl_last_without_newline(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "c.txt")
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write("feat: a\nfix: b")  # last line has no trailing newline
+            self.assertEqual(_read_changes(p), ["feat: a", "fix: b"])
 
 
 if __name__ == "__main__":

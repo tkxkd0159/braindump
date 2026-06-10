@@ -89,7 +89,11 @@ def build_release_notes_html(subjects, version, date, repo, tag) -> str:
         if section is None:
             dropped.append(subject)
             continue
-        buckets[section].append(_clean_description(match.group("desc")))
+        cleaned = _clean_description(match.group("desc"))
+        if not cleaned:  # e.g. "feat: (#1)" — description was only a PR reference
+            dropped.append(subject)
+            continue
+        buckets[section].append(cleaned)
 
     if dropped:
         print(
