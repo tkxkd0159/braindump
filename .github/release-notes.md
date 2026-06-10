@@ -11,13 +11,3 @@
 
 This app is not notarized (no paid Apple Developer account), so macOS requires a
 one-time manual approval. Source is public.
-
-## Updates
-
-From this version on, Brain Dump checks for updates once a day in the background
-and can install them in one click (**Brain Dump ▸ Check for Updates…**, or
-**Settings ▸ Software Update**). Updates are cryptographically signed.
-
-If you're upgrading from an older build that predates auto-update, this one
-release must be installed manually (download below); every release after it will
-update in place.
