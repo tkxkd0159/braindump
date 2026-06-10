@@ -14,7 +14,8 @@ import os
 import re
 import sys
 import xml.etree.ElementTree as ET
-from email.utils import formatdate
+from datetime import datetime, timezone
+from email.utils import format_datetime
 
 REPO = "tkxkd0159/braindump"
 SPARKLE = "http://www.andymatuschak.org/xml-namespaces/sparkle"
@@ -39,6 +40,28 @@ _MONTHS = (
 
 def sp(tag: str) -> str:
     return f"{{{SPARKLE}}}{tag}"
+
+
+def _parse_date(value: str) -> datetime:
+    """Parse --date (ISO 8601: a date like 2026-06-09, or a full datetime).
+
+    Empty -> current UTC time. fromisoformat already handles plain dates, so no
+    extra format fallback is needed. Naive values are assumed to be UTC.
+    """
+    if not value:
+        return datetime.now(timezone.utc)
+    dt = datetime.fromisoformat(value)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _read_changes(path: str) -> list:
+    """One commit subject per line; missing/empty path -> no changes."""
+    if not path or not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8") as fh:
+        return [line.rstrip("\n") for line in fh]
 
 
 def _clean_description(desc: str) -> str:
@@ -103,16 +126,17 @@ def build_release_notes_html(subjects, version, date, repo, tag) -> str:
     return "\n".join(parts)
 
 
-def build_item(args, length: int) -> ET.Element:
+def build_item(args, length: int, notes_html: str, pub_dt: datetime) -> ET.Element:
     item = ET.Element("item")
     ET.SubElement(item, "title").text = args.version
-    ET.SubElement(item, "pubDate").text = formatdate(localtime=False)
+    ET.SubElement(item, "pubDate").text = format_datetime(pub_dt)
     ET.SubElement(item, sp("version")).text = args.build
     ET.SubElement(item, sp("shortVersionString")).text = args.version
     ET.SubElement(item, sp("minimumSystemVersion")).text = args.min_system
-    ET.SubElement(item, sp("releaseNotesLink")).text = (
-        f"https://github.com/{REPO}/releases/tag/{args.tag}"
-    )
+    # Embedded release notes; Sparkle renders this directly, so we intentionally
+    # emit NO <sparkle:releaseNotesLink> (a link would take precedence and pull
+    # in the full GitHub page).
+    ET.SubElement(item, "description").text = notes_html
     url = (
         f"https://github.com/{REPO}/releases/download/"
         f"{args.tag}/{os.path.basename(args.zip)}"
@@ -134,10 +158,17 @@ def main() -> None:
     p.add_argument("--zip", required=True)
     p.add_argument("--signature", required=True)
     p.add_argument("--min-system", default="14.0")
+    p.add_argument("--changes-file", default="")
+    p.add_argument("--date", default="")
     p.add_argument("--out", required=True)
     args = p.parse_args()
 
     length = os.path.getsize(args.zip)
+    pub_dt = _parse_date(args.date)
+    subjects = _read_changes(args.changes_file)
+    notes_html = build_release_notes_html(
+        subjects, args.version, pub_dt, REPO, args.tag
+    )
 
     if args.prev and os.path.exists(args.prev):
         tree = ET.parse(args.prev)
@@ -160,7 +191,7 @@ def main() -> None:
     first_item_idx = next(
         (i for i, c in enumerate(children) if c.tag == "item"), len(children)
     )
-    channel.insert(first_item_idx, build_item(args, length))
+    channel.insert(first_item_idx, build_item(args, length, notes_html, pub_dt))
 
     tree.write(args.out, encoding="utf-8", xml_declaration=True)
 
