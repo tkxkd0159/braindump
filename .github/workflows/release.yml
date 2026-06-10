@@ -16,6 +16,8 @@ jobs:
     runs-on: macos-26 # Apple Silicon, universal build; Xcode 26 default = Swift 6.x (matches local, clears the swift-tools-version:6.0 gate)
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # need tags + history for the changelog range
 
       - name: Derive version from tag
         id: ver
@@ -34,6 +36,9 @@ jobs:
 
       - name: Run tests (gate)
         run: swift test
+
+      - name: Run appcast script tests (gate)
+        run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
 
       - name: Install create-dmg
         env:
@@ -87,6 +92,26 @@ jobs:
             echo "::error::sign_update did not return an edSignature: $SIG_LINE"; exit 1
           fi
           ED=$(printf '%s' "$SIG_LINE" | sed -E 's/.*edSignature="([^"]+)".*/\1/')
+
+          # Changelog = commit subjects since the previous STABLE tag (exclude
+          # prereleases — they carry a hyphen — and the tag being released).
+          PREV_STABLE=$(git tag --list 'v*' --sort=-v:refname \
+            | grep -vE '-' \
+            | grep -vFx "$TAG" \
+            | head -n1 || true)
+          if [[ -n "$PREV_STABLE" ]]; then
+            RANGE="${PREV_STABLE}..${TAG}"
+          else
+            # First stable release: no prior baseline, so the changelog is the
+            # whole history reachable from the tag. Deliberate — the SECTIONS
+            # allowlist trims it to user-facing feat/fix and we never silently
+            # cap it. (Effectively unreachable here since stable tags already
+            # exist; kept correct for forks / a genuine first release.)
+            RANGE="$TAG"
+          fi
+          echo "changelog range: ${RANGE}"
+          git log --no-merges --pretty=format:'%s' "$RANGE" > build/changes.txt || true
+
           PREV=""
           if gh release download --pattern appcast.xml --dir build/prev 2>/dev/null; then
             PREV="build/prev/appcast.xml"
@@ -96,6 +121,8 @@ jobs:
             --version "$VERSION" --build "$BUILD" --tag "$TAG" \
             --zip build/BrainDump.zip --signature "$ED" \
             --min-system 14.0 \
+            --changes-file build/changes.txt \
+            --date "$(date -u +%Y-%m-%d)" \
             --out build/appcast.xml
           xmllint --noout build/appcast.xml
           test -n "$ED"
