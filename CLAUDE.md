@@ -86,7 +86,7 @@ Tests/
 
 **Backup is versioned JSON.** `BackupService` encodes a `BackupSnapshot { version, days, backlogItems }` of plain DTOs (ISO-8601 dates) and restores **replace-all**. Malformed input throws `BackupError.malformed`; a version mismatch throws `.unsupportedVersion`. Reached via `AppState.exportBackupData()` / `importBackup(from:)`; UI is in `SettingsSheet`.
 
-**Sidebar auto-collapse.** `AppShell` hides the sidebar when the window is narrower than `sidebarThreshold` (= `canvasMin + sidebarWidth`) **without** mutating the user's `isSidebarVisible` preference, so it returns when the window grows. ⌘B toggles the preference.
+**Sidebar auto-collapse.** `AppShell` hides the sidebar when the window is narrower than `sidebarThreshold` (= `canvasMin + sidebarWidth` = 1248) **without** mutating the user's `isSidebarVisible` preference, so it returns when the window grows. ⌘B toggles the preference. **The window's minimum width (`WindowSizing.minWidth`) is pinned to `sidebarThreshold`** so a user can't normally resize into the auto-collapsed state — where the toggle (and the navigation + Settings the sidebar holds) would have no effect, since `effectivelyVisible = isSidebarVisible && canFit`. `WindowSizing.minWidth` is nonisolated and can't reference `@MainActor` `AppShell.sidebarThreshold` directly, so it's the literal `1248`; `WindowSizingTests.minimumWidthFitsSidebar` keeps them in sync. Auto-collapse now only fires as graceful degradation if the OS forces a sub-1248 window (a screen narrower than 1248pt).
 
 ## Conventions
 
