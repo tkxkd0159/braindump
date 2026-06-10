@@ -7,3 +7,5 @@ Package.resolved
 build/
 
 docs/superpowers/
+__pycache__/
+*.pyc

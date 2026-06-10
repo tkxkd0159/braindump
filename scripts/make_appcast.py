@@ -9,7 +9,9 @@ preserving older items and their own per-tag URLs. Re-running for the same
 build number is idempotent (the matching item is replaced).
 """
 import argparse
+import html
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 from email.utils import formatdate
@@ -18,9 +20,87 @@ REPO = "tkxkd0159/braindump"
 SPARKLE = "http://www.andymatuschak.org/xml-namespaces/sparkle"
 ET.register_namespace("sparkle", SPARKLE)
 
+# Conventional-commit type -> release-notes section. Allowlist only: any type
+# not listed here (and any unprefixed subject) is dropped from the user-facing
+# notes, so chores/docs/ci can never leak in. The full list still lives on the
+# GitHub release page.
+SECTIONS = (
+    ("Features", {"feat"}),
+    ("Fixes", {"fix", "perf"}),
+)
+_PREFIX_RE = re.compile(r"^(?P<type>[a-z]+)(?:\([^)]*\))?!?:\s*(?P<desc>.+)$")
+_TRAILING_PR_RE = re.compile(r"\s*\(#\d+\)\s*$")
+# Locale-independent month names (strftime('%B') would localize on some runners).
+_MONTHS = (
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+)
+
 
 def sp(tag: str) -> str:
     return f"{{{SPARKLE}}}{tag}"
+
+
+def _clean_description(desc: str) -> str:
+    """Strip a trailing (#123) and upper-case the first character."""
+    desc = _TRAILING_PR_RE.sub("", desc).strip()
+    if desc:
+        desc = desc[0].upper() + desc[1:]
+    return desc
+
+
+def build_release_notes_html(subjects, version, date, repo, tag) -> str:
+    """Categorized, cleaned HTML release notes for the Sparkle update screen."""
+    type_to_section = {t: name for name, types in SECTIONS for t in types}
+    buckets = {name: [] for name, _ in SECTIONS}
+    dropped = []
+    for subject in subjects:
+        subject = subject.strip()
+        if not subject:
+            continue
+        match = _PREFIX_RE.match(subject)
+        if match is None:
+            dropped.append(subject)
+            continue
+        section = type_to_section.get(match.group("type"))
+        if section is None:
+            dropped.append(subject)
+            continue
+        buckets[section].append(_clean_description(match.group("desc")))
+
+    if dropped:
+        print(
+            f"make_appcast: dropped {len(dropped)} non-user-facing commit(s) "
+            f"from the in-app notes (still on the GitHub release page):",
+            file=sys.stderr,
+        )
+        for line in dropped:
+            print(f"  - {line}", file=sys.stderr)
+
+    date_str = f"{_MONTHS[date.month - 1]} {date.day}, {date.year}"
+    parts = [f"<h2>Brain Dump {html.escape(version)} — {date_str}</h2>"]
+
+    if any(buckets[name] for name, _ in SECTIONS):
+        for name, _ in SECTIONS:
+            items = buckets[name]
+            if not items:
+                continue
+            parts.append(f"<h3>{name}</h3>")
+            parts.append("<ul>")
+            parts.extend(f"<li>{html.escape(item)}</li>" for item in items)
+            parts.append("</ul>")
+    else:
+        parts.append(
+            "<p>This release includes maintenance and behind-the-scenes "
+            "improvements.</p>"
+        )
+
+    notes_url = f"https://github.com/{repo}/releases/tag/{tag}"
+    parts.append(
+        f'<p><a href="{html.escape(notes_url)}">'
+        f"Full release notes on GitHub →</a></p>"
+    )
+    return "\n".join(parts)
 
 
 def build_item(args, length: int) -> ET.Element:
