@@ -59,7 +59,7 @@ public struct BacklogScreen: View {
                 .background(Theme.Palette.primary)
             }
             .buttonStyle(.plain)
-            .keyboardShortcut("p", modifiers: [.command])
+            .keyboardShortcut("n", modifiers: [.command])
             .help("Add a new backlog task")
         }
     }
