@@ -135,8 +135,8 @@ Custom shortcuts defined in the app:
 | Shortcut | Action                                           | Where                              |
 | -------- | ------------------------------------------------ | ---------------------------------- |
 | **⌘B**   | Show / hide the sidebar                          | Anywhere                           |
-| **⌘T**   | New brain-dump task (opens the *New Task* sheet) | Today, on editable (non-past) days |
-| **⌘P**   | New backlog task                                 | Backlog screen                     |
+| **⌘N**   | New brain-dump task (opens the *New Task* sheet) | Today, on editable (non-past) days |
+| **⌘N**   | New backlog task                                 | Backlog screen                     |
 
 
 Standard macOS shortcuts also apply via the system menu bar: **⌘Q** quit, **⌘W** close window, **⌘M** minimize, **⌘H** hide.

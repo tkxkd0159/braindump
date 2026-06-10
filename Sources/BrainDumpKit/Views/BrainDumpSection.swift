@@ -112,7 +112,7 @@ public struct BrainDumpSection: View {
                         .foregroundStyle(Theme.Palette.onSurfaceVariant)
                 }
                 .buttonStyle(.plain)
-                .keyboardShortcut("t", modifiers: [.command])
+                .keyboardShortcut("n", modifiers: [.command])
                 .help("Add brain-dump item")
             }
         }
