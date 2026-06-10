@@ -91,7 +91,7 @@ jobs:
           if gh release download --pattern appcast.xml --dir build/prev 2>/dev/null; then
             PREV="build/prev/appcast.xml"
           fi
-          python3 scripts/make-appcast.py \
+          python3 scripts/make_appcast.py \
             --prev "$PREV" \
             --version "$VERSION" --build "$BUILD" --tag "$TAG" \
             --zip build/BrainDump.zip --signature "$ED" \
