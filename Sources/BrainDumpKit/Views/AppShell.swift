@@ -17,6 +17,7 @@ public struct AppShell: View {
     private let storeRecovery: StoreRecovery
     private let initialDestination: SidebarDestination?
     private let updateModel: AppUpdateModel
+    private let notifier: UserNotifying
     @State private var showRecoveryNotice: Bool
 
     static let sidebarWidth: CGFloat = 256
@@ -39,11 +40,13 @@ public struct AppShell: View {
     public init(
         storeRecovery: StoreRecovery = .normal,
         initialDestination: SidebarDestination? = nil,
-        updateModel: AppUpdateModel = AppUpdateModel()
+        updateModel: AppUpdateModel = AppUpdateModel(),
+        notifier: UserNotifying = NoopUserNotifying()
     ) {
         self.storeRecovery = storeRecovery
         self.initialDestination = initialDestination
         self.updateModel = updateModel
+        self.notifier = notifier
         _showRecoveryNotice = State(initialValue: storeRecovery.isRecovery)
     }
 
@@ -86,12 +89,17 @@ public struct AppShell: View {
                 // after waking), and on a periodic fallback tick.
                 .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
                     state.refreshCurrentDate()
+                    state.refreshAllNotifications()
                 }
                 .onReceive(dateRefreshTimer) { _ in
                     state.refreshCurrentDate()
+                    state.refreshAllNotifications()
                 }
                 .onChange(of: scenePhase) { _, newPhase in
-                    if newPhase == .active { state.refreshCurrentDate() }
+                    if newPhase == .active {
+                        state.refreshCurrentDate()
+                        state.refreshAllNotifications()
+                    }
                 }
             } else {
                 ProgressView()
@@ -102,9 +110,12 @@ public struct AppShell: View {
         }
         .onAppear {
             if state == nil {
-                let created = AppState(context: context)
+                let created = AppState(context: context, notifier: notifier)
                 if let initialDestination { created.selectedDestination = initialDestination }
                 state = created
+                // First reconcile: arms any reminders/digest already configured.
+                // Requests no permission unless something is actually scheduled.
+                created.refreshAllNotifications()
             }
         }
         // Refresh calendar subscriptions once `state` exists, then every 30

@@ -808,7 +808,7 @@ struct VisualSnapshotTests {
             initialDurationMinutes: 60,
             dayStartHour: state.dayStartHour,
             dayEndHour: state.dayEndHour,
-            onConfirm: { _, _, _ in },
+            onConfirm: { _, _, _, _ in },
             onCancel: {}
         )
         .environment(\.modelContext, context)

@@ -38,6 +38,7 @@ public struct TaskDetailSheet: View {
     @State private var endMinute: Int
     @State private var colorIndex: Int
     @State private var scheduleEnabled: Bool
+    @State private var reminderOffset: Int?
     @State private var errorText: String?
 
     /// Cached tag suggestions. Fetched once on first appearance — otherwise
@@ -61,6 +62,7 @@ public struct TaskDetailSheet: View {
             _endMinute = State(initialValue: 10 * 60)
             _colorIndex = State(initialValue: 0)
             _scheduleEnabled = State(initialValue: false)
+            _reminderOffset = State(initialValue: nil)
             startInEditModeAtInit = true
         case .edit(let item, let entry, let startInEditMode):
             _isEditing = State(initialValue: startInEditMode)
@@ -72,11 +74,13 @@ public struct TaskDetailSheet: View {
                 _endMinute = State(initialValue: entry.endMinute)
                 _colorIndex = State(initialValue: entry.colorIndex)
                 _scheduleEnabled = State(initialValue: true)
+                _reminderOffset = State(initialValue: entry.reminderOffsetMinutes)
             } else {
                 _startMinute = State(initialValue: 9 * 60)
                 _endMinute = State(initialValue: 10 * 60)
                 _colorIndex = State(initialValue: 0)
                 _scheduleEnabled = State(initialValue: false)
+                _reminderOffset = State(initialValue: nil)
             }
             startInEditModeAtInit = startInEditMode
         }
@@ -171,6 +175,7 @@ public struct TaskDetailSheet: View {
                     endMinute: $endMinute
                 )
                 ColorSwatchRow(selected: $colorIndex)
+                reminderPickerRow
             }
         } else {
             VStack(alignment: .leading, spacing: 10) {
@@ -186,7 +191,32 @@ public struct TaskDetailSheet: View {
                         endMinute: $endMinute
                     )
                     ColorSwatchRow(selected: $colorIndex)
+                    reminderPickerRow
                 }
+            }
+        }
+    }
+
+    private var reminderPickerRow: some View {
+        HStack(spacing: 12) {
+            Text("Reminder")
+                .font(Theme.Font.bodyMd)
+                .foregroundStyle(Theme.Palette.onSurface)
+            Spacer(minLength: 0)
+            Picker("", selection: $reminderOffset) {
+                Text("None").tag(Int?.none)
+                ForEach(ReminderOffset.validPresets(startMinute: TimeRangePicker.snap(minute: startMinute)), id: \.self) { offset in
+                    Text(ReminderOffset.label(offset)).tag(Int?.some(offset))
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+        }
+        .onChange(of: startMinute) { _, newStart in
+            // Keep the reminder within the day if the start moves earlier.
+            if !ReminderOffset.isValid(reminderOffset, startMinute: TimeRangePicker.snap(minute: newStart)) {
+                reminderOffset = nil
             }
         }
     }
@@ -343,13 +373,17 @@ public struct TaskDetailSheet: View {
                     if entry.colorIndex != colorIndex {
                         scheduleService.setColorIndex(entry, colorIndex)
                     }
+                    if entry.reminderOffsetMinutes != reminderOffset {
+                        scheduleService.setReminderOffset(entry, reminderOffset)
+                    }
                 } else {
                     _ = try scheduleService.schedule(
                         item,
                         on: day,
                         startMinute: start,
                         durationMinutes: duration,
-                        colorIndex: colorIndex
+                        colorIndex: colorIndex,
+                        reminderOffsetMinutes: reminderOffset
                     )
                 }
             } catch TodoError.scheduleConflict {

@@ -23,6 +23,8 @@ public struct EntryDTO: Codable, Equatable {
     public var completedAt: Date?
     public var colorIndex: Int
     public var itemID: UUID?
+    /// Added in backup v2; absent in v1 backups (decodes as nil).
+    public var reminderOffsetMinutes: Int?
 }
 
 public struct DayDTO: Codable, Equatable {
@@ -40,7 +42,7 @@ public struct BackupSnapshot: Codable, Equatable {
 
 @MainActor
 public final class BackupService {
-    public static let currentVersion = 1
+    public static let currentVersion = 2
     private let context: ModelContext
 
     public init(context: ModelContext) { self.context = context }
@@ -62,7 +64,7 @@ public final class BackupService {
         } catch {
             throw BackupError.malformed
         }
-        guard snapshot.version == Self.currentVersion else {
+        guard (1...Self.currentVersion).contains(snapshot.version) else {
             throw BackupError.unsupportedVersion(snapshot.version)
         }
         deleteAll()
@@ -99,6 +101,7 @@ public final class BackupService {
                 entry.id = entryDTO.id
                 entry.isCompleted = entryDTO.isCompleted
                 entry.completedAt = entryDTO.completedAt
+                entry.reminderOffsetMinutes = entryDTO.reminderOffsetMinutes
                 context.insert(entry)
             }
         }
@@ -127,7 +130,8 @@ public final class BackupService {
                     EntryDTO(
                         id: e.id, startMinute: e.startMinute,
                         durationMinutes: e.durationMinutes, isCompleted: e.isCompleted,
-                        completedAt: e.completedAt, colorIndex: e.colorIndex, itemID: e.item?.id)
+                        completedAt: e.completedAt, colorIndex: e.colorIndex, itemID: e.item?.id,
+                        reminderOffsetMinutes: e.reminderOffsetMinutes)
                 })
         }
         let backlogItems = ((try? context.fetch(

@@ -374,6 +374,72 @@ import SwiftData
     #expect(state.dataGeneration == genBefore + 1)
 }
 
+// MARK: - Backlog digest settings + notification inputs
+
+@MainActor
+@Test func backlogDigestSettingsDefaultAndPersist() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let state = AppState(context: context, now: { TestDate.at(2026, 6, 12) }, defaults: defaults)
+    #expect(state.backlogDigestEnabled == false)
+    #expect(state.backlogDigestThresholdDays == 7)
+    #expect(state.backlogDigestHour == 9)
+    #expect(state.backlogDigestMinute == 0)
+
+    state.backlogDigestThresholdDays = 14
+    state.backlogDigestEnabled = true
+    #expect(defaults.integer(forKey: "BrainDump.backlogDigestThresholdDays") == 14)
+    #expect(defaults.bool(forKey: "BrainDump.backlogDigestEnabled") == true)
+}
+
+@MainActor
+@Test func backlogDigestSettingsPersistAcrossInits() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let first = AppState(context: context, now: { TestDate.at(2026, 6, 12) }, defaults: defaults)
+    first.backlogDigestEnabled = true
+    first.backlogDigestThresholdDays = 3
+    first.backlogDigestHour = 8
+    first.backlogDigestMinute = 30
+
+    let second = AppState(context: context, now: { TestDate.at(2026, 6, 12) }, defaults: defaults)
+    #expect(second.backlogDigestEnabled == true)
+    #expect(second.backlogDigestThresholdDays == 3)
+    #expect(second.backlogDigestHour == 8)
+    #expect(second.backlogDigestMinute == 30)
+}
+
+@MainActor
+@Test func scheduleReminderInputsReflectEntries() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let state = AppState(context: context, now: { TestDate.at(2026, 6, 12) }, defaults: defaults)
+    let day = DayService(context: context).day(for: state.todayDate)
+    let item = TaskService(context: context).addBrainDumpItem(title: "A", on: day)
+    _ = try ScheduleService(context: context).schedule(
+        item, on: day, startMinute: 540, durationMinutes: 60, reminderOffsetMinutes: 15)
+
+    let inputs = state.scheduleReminderInputs(for: day)
+    #expect(inputs.count == 1)
+    #expect(inputs.first?.offsetMinutes == 15)
+    #expect(inputs.first?.title == "A")
+    #expect(inputs.first?.startMinute == 540)
+}
+
+@MainActor
+@Test func clearAllDataDoesNotRecreateTodayViaNotificationRefresh() throws {
+    // refreshAllNotifications must not re-insert today's Day after a wipe.
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let day = DayService(context: context).day(for: TestDate.at(2026, 6, 12))
+    _ = TaskService(context: context).addBrainDumpItem(title: "Sample", on: day)
+    let state = AppState(context: context, now: { TestDate.at(2026, 6, 12) }, defaults: defaults)
+
+    state.clearAllData()
+
+    #expect((try context.fetch(FetchDescriptor<Day>())).isEmpty)
+}
+
 @MainActor
 @Test func refreshIsIdempotentWhenCalledTwice() throws {
     let context = try InMemoryStore.makeContext()

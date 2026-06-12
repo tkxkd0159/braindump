@@ -64,7 +64,7 @@ struct Stage5SnapshotTests {
             initialStartMinute: 9 * 60 + 15,
             initialDurationMinutes: 75,
             initialColorIndex: 1,
-            onConfirm: { _, _, _ in },
+            onConfirm: { _, _, _, _ in },
             onCancel: {}
         )
         renderViaHostingWindow(

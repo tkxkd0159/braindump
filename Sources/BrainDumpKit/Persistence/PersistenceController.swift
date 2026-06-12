@@ -27,8 +27,7 @@ public enum StoreRecovery: Equatable, Sendable {
     }
 }
 
-/// Version 1 of the on-disk schema. Establishes the migration seam: a future
-/// V2 adds a `MigrationStage` to `BrainDumpMigrationPlan` instead of crashing.
+/// Version 1 of the on-disk schema.
 public enum BrainDumpSchemaV1: VersionedSchema {
     public static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }
     public static var models: [any PersistentModel.Type] {
@@ -36,9 +35,25 @@ public enum BrainDumpSchemaV1: VersionedSchema {
     }
 }
 
+/// Version 2 adds `ScheduleEntry.reminderOffsetMinutes` (optional). Both
+/// versions reference the live model classes deliberately: SwiftData derives
+/// the entity name from the class name, so a frozen/renamed snapshot would read
+/// as a *different* entity and lose data rather than migrate. The additive
+/// optional column is handled by a lightweight stage on open.
+public enum BrainDumpSchemaV2: VersionedSchema {
+    public static var versionIdentifier: Schema.Version { Schema.Version(2, 0, 0) }
+    public static var models: [any PersistentModel.Type] {
+        [Day.self, TaskItem.self, ScheduleEntry.self]
+    }
+}
+
 public enum BrainDumpMigrationPlan: SchemaMigrationPlan {
-    public static var schemas: [any VersionedSchema.Type] { [BrainDumpSchemaV1.self] }
-    public static var stages: [MigrationStage] { [] }
+    public static var schemas: [any VersionedSchema.Type] {
+        [BrainDumpSchemaV1.self, BrainDumpSchemaV2.self]
+    }
+    public static var stages: [MigrationStage] {
+        [.lightweight(fromVersion: BrainDumpSchemaV1.self, toVersion: BrainDumpSchemaV2.self)]
+    }
 }
 
 public enum PersistenceController {
@@ -69,7 +84,7 @@ public enum PersistenceController {
     public static func makeContainer(
         storeURL: URL = defaultStoreURL()
     ) -> (container: ModelContainer, recovery: StoreRecovery) {
-        let schema = Schema(versionedSchema: BrainDumpSchemaV1.self)
+        let schema = Schema(versionedSchema: BrainDumpSchemaV2.self)
         try? FileManager.default.createDirectory(
             at: storeURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let config = ModelConfiguration(schema: schema, url: storeURL)

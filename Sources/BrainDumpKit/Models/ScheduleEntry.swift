@@ -9,6 +9,9 @@ public final class ScheduleEntry {
     public var isCompleted: Bool = false
     public var completedAt: Date?
     public var colorIndex: Int = 0
+    /// Minutes-before-start to fire a reminder; `nil` means no reminder.
+    /// Added in schema V2 (optional, so existing stores migrate lightly).
+    public var reminderOffsetMinutes: Int?
     public var item: TaskItem?
     public var day: Day?
 
@@ -16,6 +19,7 @@ public final class ScheduleEntry {
         startMinute: Int,
         durationMinutes: Int,
         colorIndex: Int = 0,
+        reminderOffsetMinutes: Int? = nil,
         item: TaskItem? = nil,
         day: Day? = nil
     ) {
@@ -25,6 +29,7 @@ public final class ScheduleEntry {
         self.isCompleted = false
         self.completedAt = nil
         self.colorIndex = colorIndex
+        self.reminderOffsetMinutes = reminderOffsetMinutes
         self.item = item
         self.day = day
     }

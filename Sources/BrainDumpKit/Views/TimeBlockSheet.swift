@@ -7,21 +7,24 @@ public struct TimeBlockSheet: View {
     let initialDurationMinutes: Int
     let dayStartHour: Int
     let dayEndHour: Int
-    let onConfirm: (Int, Int, Int) -> Void  // startMinute, durationMinutes, colorIndex
+    // startMinute, durationMinutes, colorIndex, reminderOffsetMinutes (nil = none)
+    let onConfirm: (Int, Int, Int, Int?) -> Void
     let onCancel: () -> Void
 
     @State private var startMinute: Int
     @State private var endMinute: Int
     @State private var colorIndex: Int
+    @State private var reminderOffset: Int?
     @State private var error: String?
 
     public init(
         initialStartMinute: Int,
         initialDurationMinutes: Int = 60,
         initialColorIndex: Int = 0,
+        initialReminderOffset: Int? = nil,
         dayStartHour: Int = 5,
         dayEndHour: Int = 22,
-        onConfirm: @escaping (Int, Int, Int) -> Void,
+        onConfirm: @escaping (Int, Int, Int, Int?) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.initialStartMinute = initialStartMinute
@@ -35,6 +38,7 @@ public struct TimeBlockSheet: View {
         _startMinute = State(initialValue: snappedStart)
         _endMinute = State(initialValue: max(snappedStart + 15, snappedEnd))
         _colorIndex = State(initialValue: initialColorIndex)
+        _reminderOffset = State(initialValue: initialReminderOffset)
     }
 
     public var body: some View {
@@ -47,6 +51,7 @@ public struct TimeBlockSheet: View {
                 dayEndHour: dayEndHour
             )
             ColorSwatchRow(selected: $colorIndex)
+            reminderPicker
             if let error {
                 Text(error)
                     .font(Theme.Font.caption)
@@ -57,6 +62,30 @@ public struct TimeBlockSheet: View {
         .padding(28)
         .frame(width: 460)
         .background(Theme.Palette.surfaceContainerLowest)
+        .onChange(of: startMinute) { _, newStart in
+            // Keep the reminder within the day if the start time moves earlier.
+            if !ReminderOffset.isValid(reminderOffset, startMinute: TimeRangePicker.snap(minute: newStart)) {
+                reminderOffset = nil
+            }
+        }
+    }
+
+    private var reminderPicker: some View {
+        HStack(spacing: 12) {
+            Text("Reminder")
+                .font(Theme.Font.labelMd)
+                .foregroundStyle(Theme.Palette.onSurface)
+            Spacer(minLength: 0)
+            Picker("", selection: $reminderOffset) {
+                Text("None").tag(Int?.none)
+                ForEach(ReminderOffset.validPresets(startMinute: TimeRangePicker.snap(minute: startMinute)), id: \.self) { offset in
+                    Text(ReminderOffset.label(offset)).tag(Int?.some(offset))
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+        }
     }
 
     private var header: some View {
@@ -100,7 +129,7 @@ public struct TimeBlockSheet: View {
             error = "Time must be within the day"
             return
         }
-        onConfirm(start, duration, colorIndex)
+        onConfirm(start, duration, colorIndex, reminderOffset)
     }
 }
 
