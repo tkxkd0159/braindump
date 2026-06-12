@@ -36,7 +36,7 @@ struct BackupServiceTests {
         let data = try BackupService(context: context).exportData()
 
         let snapshot = try JSONDecoder.iso8601.decode(BackupSnapshot.self, from: data)
-        #expect(snapshot.version == 1)
+        #expect(snapshot.version == 2)
         #expect(snapshot.days.count == 2)
         #expect(snapshot.backlogItems.map(\.title) == ["Someday task"])
 
@@ -108,6 +108,39 @@ struct BackupServiceTests {
         #expect(throws: BackupError.malformed) {
             try BackupService(context: context).restore(from: Data("{not json".utf8))
         }
+    }
+
+    @Test
+    func backupRoundTripsReminderOffset() throws {
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 6, 12))
+        let item = TaskService(context: context).addBrainDumpItem(title: "A", on: day)
+        let entry = try ScheduleService(context: context).schedule(
+            item, on: day, startMinute: 540, durationMinutes: 60, reminderOffsetMinutes: 15)
+        #expect(entry.reminderOffsetMinutes == 15)
+
+        let svc = BackupService(context: context)
+        let data = try svc.exportData()
+        try svc.restore(from: data)
+
+        let entries = try context.fetch(FetchDescriptor<ScheduleEntry>())
+        #expect(entries.first?.reminderOffsetMinutes == 15)
+    }
+
+    @Test
+    func restoreAcceptsVersion1WithoutOffsetField() throws {
+        // A v1 backup JSON lacks reminderOffsetMinutes; it must decode as nil.
+        let entryID = UUID().uuidString
+        let json = """
+        {"version":1,"backlogItems":[],"days":[{"date":"2026-06-12T00:00:00Z",\
+        "top3ItemIDs":[],"items":[],"entries":[{"id":"\(entryID)","startMinute":540,\
+        "durationMinutes":60,"isCompleted":false,"colorIndex":0}]}]}
+        """
+        let context = try InMemoryStore.makeContext()
+        try BackupService(context: context).restore(from: Data(json.utf8))
+        let entries = try context.fetch(FetchDescriptor<ScheduleEntry>())
+        #expect(entries.count == 1)
+        #expect(entries.first?.reminderOffsetMinutes == nil)
     }
 }
 
