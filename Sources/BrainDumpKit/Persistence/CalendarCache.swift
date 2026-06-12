@@ -9,9 +9,11 @@ public struct CalendarCache: Sendable {
         self.url = url
     }
 
-    /// ~/Library/Application Support/BrainDump/calendar-cache.json
+    /// ~/Library/Application Support/BrainDump[-debug]/calendar-cache.json —
+    /// shares the build-specific app directory with the SwiftData store.
     public static func defaultURL() -> URL {
-        URL.applicationSupportDirectory.appending(path: "BrainDump/calendar-cache.json")
+        URL.applicationSupportDirectory.appending(
+            path: "\(PersistenceController.appDirectoryName)/calendar-cache.json")
     }
 
     public func load() -> [CalendarEvent] {

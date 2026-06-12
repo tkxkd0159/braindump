@@ -21,3 +21,11 @@ import Testing
         .appendingPathComponent("missing-\(UUID().uuidString).json")
     #expect(CalendarCache(url: tmp).load().isEmpty)
 }
+
+@MainActor
+@Test func calendarCacheDefaultURLSharesBuildAppDirectory() {
+    let url = CalendarCache.defaultURL()
+    #expect(url.lastPathComponent == "calendar-cache.json")
+    // Same build-specific directory as the store, so debug and release stay separate.
+    #expect(url.deletingLastPathComponent().lastPathComponent == PersistenceController.appDirectoryName)
+}
