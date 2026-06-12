@@ -1,9 +1,18 @@
+import Combine
 import SwiftData
 import SwiftUI
 
 public struct AppShell: View {
     @Environment(\.modelContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
     @State private var state: AppState?
+
+    // Periodic safety-net so an open window catches a date change even if the
+    // precise `NSCalendarDayChanged` notification is missed (e.g. coalesced
+    // across system sleep). `refreshCurrentDate()` is a cheap no-op until the
+    // local day actually advances, so a short interval is harmless.
+    @State private var dateRefreshTimer =
+        Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     private let storeRecovery: StoreRecovery
     private let initialDestination: SidebarDestination?
@@ -51,6 +60,19 @@ public struct AppShell: View {
                     .background(Theme.Palette.surface)
                 }
                 .frame(minWidth: Self.canvasMin, minHeight: 760)
+                // Keep the displayed day in sync with the wall clock while the
+                // window stays open: at the exact day boundary
+                // (NSCalendarDayChanged), when the app is reactivated (e.g.
+                // after waking), and on a periodic fallback tick.
+                .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+                    state.refreshCurrentDate()
+                }
+                .onReceive(dateRefreshTimer) { _ in
+                    state.refreshCurrentDate()
+                }
+                .onChange(of: scenePhase) { _, newPhase in
+                    if newPhase == .active { state.refreshCurrentDate() }
+                }
             } else {
                 ProgressView()
                     .controlSize(.large)

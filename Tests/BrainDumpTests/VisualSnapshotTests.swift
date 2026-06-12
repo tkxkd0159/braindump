@@ -581,6 +581,45 @@ struct VisualSnapshotTests {
             view, size: NSSize(width: 1180, height: 1100), filename: "snapshot-cleared-today.png")
     }
 
+    /// When the wall clock crosses midnight while the app is open,
+    /// `refreshCurrentDate()` advances `todayDate`/`selectedDate`, rolls the
+    /// previous day's uncompleted items forward, and bumps `dataGeneration` so
+    /// the day subtree rebuilds against the re-parented models. This renders
+    /// that post-rollover Today, exercising the rebuild render path (same shape
+    /// as `captureClearedToday`) and confirming yesterday's item now shows under
+    /// the new day's brain dump.
+    @Test
+    func captureTodayAfterMidnightRollover() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+        let dayService = DayService(context: context)
+        let taskService = TaskService(context: context)
+        let yesterday = dayService.day(for: TestDate.at(2026, 5, 21))
+        _ = taskService.addBrainDumpItem(title: "Rolled over from yesterday", on: yesterday)
+
+        var clock = TestDate.at(2026, 5, 21, hour: 23, minute: 59)
+        let state = AppState(
+            context: context,
+            now: { clock },
+            wiseSaying: WiseSaying(quote: "Each day is a fresh sheet.", author: "—"),
+            defaults: defaults
+        )
+        // Cross midnight while the app is still open.
+        clock = TestDate.at(2026, 5, 22, hour: 0, minute: 1)
+        #expect(state.refreshCurrentDate())
+
+        let view = DayView(state: state)
+            .id(state.dataGeneration)
+            .environment(\.modelContext, context)
+            .padding(.horizontal, 64)
+            .padding(.top, 36)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1180, height: 1100),
+            filename: "snapshot-today-after-rollover.png")
+    }
+
     /// F4 + F2 + F3 together at a realistic (not artificially tall) window:
     /// the date/saying header sits at the top line, the three sections are
     /// pulled up, and the schedule fills the window height (scrolling
