@@ -857,6 +857,87 @@ struct VisualSnapshotTests {
             view, size: NSSize(width: 1440, height: 900), filename: "feature-backlog-full-app.png")
     }
 
+    // MARK: - Date header
+
+    @Test
+    func captureDateHeaderToday() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let state = AppState(
+            context: context,
+            now: { TestDate.at(2026, 5, 22) },
+            wiseSaying: WiseSaying(
+                quote: "The secret of getting ahead is getting started.",
+                author: "Mark Twain"))
+        let view = DateHeader(state: state)
+            .environment(\.modelContext, context)
+            .padding(.horizontal, 64)
+            .padding(.top, 36)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1000, height: 200),
+            filename: "snapshot-date-header-today.png")
+    }
+
+    @Test
+    func captureDateHeaderPastDay() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let state = AppState(
+            context: context,
+            now: { TestDate.at(2026, 5, 22) },
+            wiseSaying: WiseSaying(
+                quote: "The secret of getting ahead is getting started.",
+                author: "Mark Twain"))
+        state.goToPreviousDay()  // viewing a past day → next arrow active
+        let view = DateHeader(state: state)
+            .environment(\.modelContext, context)
+            .padding(.horizontal, 64)
+            .padding(.top, 36)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1000, height: 200),
+            filename: "snapshot-date-header-past.png")
+    }
+
+    @Test
+    func captureDateHeaderHovered() throws {
+        Fonts.registerIfNeeded()
+        // "Fri, May 22, 2026" matches the "EEE, MMM d, yyyy" formatter for 2026-05-22.
+        let view = DateLabel(text: "Fri, May 22, 2026", isHovered: true)
+            .padding(40)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 520, height: 140),
+            filename: "snapshot-date-header-hovered.png")
+    }
+
+    /// Button-position stability: with the abbreviated format + fixed-width date
+    /// box, the trailing ‹ › must sit at the SAME x regardless of the date's
+    /// natural width. Stacks headers for a wide date and narrow dates; inspect
+    /// that the arrows form a straight vertical line (and no date truncates).
+    @Test
+    func captureDateHeaderButtonAlignment() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let saying = WiseSaying(quote: "x", author: "y")
+        let view = VStack(alignment: .leading, spacing: 28) {
+            DateHeader(state: AppState(
+                context: context, now: { TestDate.at(2026, 9, 30) }, wiseSaying: saying))
+            DateHeader(state: AppState(
+                context: context, now: { TestDate.at(2026, 5, 1) }, wiseSaying: saying))
+            DateHeader(state: AppState(
+                context: context, now: { TestDate.at(2026, 11, 25) }, wiseSaying: saying))
+        }
+        .environment(\.modelContext, context)
+        .padding(.horizontal, 64)
+        .padding(.vertical, 36)
+        .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 1000, height: 440),
+            filename: "snapshot-date-header-alignment.png")
+    }
+
     // MARK: - Rendering
 
     private func renderViaHostingWindow<V: View>(
