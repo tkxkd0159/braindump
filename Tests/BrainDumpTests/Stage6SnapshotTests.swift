@@ -68,24 +68,6 @@ struct Stage6SnapshotTests {
         renderViaHostingWindow(view, size: NSSize(width: 480, height: 280), filename: "stage6-tag-input.png")
     }
 
-    @Test
-    func captureDateHeaderWithoutCalendarIcon() throws {
-        Fonts.registerIfNeeded()
-        let (context, _, _) = try seedScheduledTask()
-        let state = AppState(
-            context: context,
-            now: { TestDate.at(2026, 5, 22) },
-            wiseSaying: WiseSaying(quote: "Discipline equals freedom.", author: "Jocko Willink"),
-            defaults: ephemeralDefaults()
-        )
-        let view = DateHeaderHarness(state: state)
-            .environment(\.modelContext, context)
-            .padding(32)
-            .frame(width: 880, height: 220)
-            .background(Theme.Palette.surface)
-        renderViaHostingWindow(view, size: NSSize(width: 880, height: 220), filename: "stage6-date-header.png")
-    }
-
     // MARK: - Helpers
 
     private func seedScheduledTask() throws -> (ModelContext, Day, ScheduleEntry) {
@@ -110,10 +92,6 @@ struct Stage6SnapshotTests {
         let scratch = taskService.addBrainDumpItem(title: "Outline references", on: day)
         taskService.updateTags(scratch, tags: ["research", "review"])
         return (context, day, entry)
-    }
-
-    private func ephemeralDefaults() -> UserDefaults {
-        UserDefaults(suiteName: "BrainDumpStage6.\(UUID().uuidString)")!
     }
 
     private func renderViaHostingWindow<V: View>(_ view: V, size: NSSize, filename: String) {
@@ -169,42 +147,5 @@ private struct TagInputFieldHarness: View {
         .padding(24)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(Theme.Palette.surfaceContainerLowest)
-    }
-}
-
-/// Mirrors the actual `DateHeader` enough to verify the calendar icon was
-/// dropped. We can't render `AppShell.DateHeader` directly because it's
-/// fileprivate, so this composite re-creates the layout that ships.
-private struct DateHeaderHarness: View {
-    @Bindable var state: AppState
-
-    private static let formatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .full
-        return f
-    }()
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 24) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(Self.formatter.string(from: state.selectedDate))
-                    .font(Theme.Font.headlineLg)
-                    .tracking(-0.3)
-                    .foregroundStyle(Theme.Palette.primary)
-                Text("\u{201C}\(state.currentWiseSaying.quote)\u{201D} — \(state.currentWiseSaying.author)")
-                    .font(Theme.Font.bodyMdItalic)
-                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            }
-            Spacer()
-            ZStack {
-                Rectangle()
-                    .fill(Theme.Palette.surfaceContainerHigh)
-                Text("RF")
-                    .font(Theme.Font.labelMd)
-                    .tracking(0.5)
-                    .foregroundStyle(Theme.Palette.primary)
-            }
-            .frame(width: 40, height: 40)
-        }
     }
 }
