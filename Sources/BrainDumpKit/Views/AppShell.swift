@@ -392,24 +392,6 @@ private struct DateHeader: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 640, alignment: .leading)
             }
-            Spacer()
-            WorkspaceAvatar()
-        }
-    }
-}
-
-private struct WorkspaceAvatar: View {
-    var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Rectangle()
-                    .fill(Theme.Palette.surfaceContainerHigh)
-                Text("RF")
-                    .font(Theme.Font.labelMd)
-                    .tracking(0.5)
-                    .foregroundStyle(Theme.Palette.primary)
-            }
-            .frame(width: 40, height: 40)
         }
     }
 }

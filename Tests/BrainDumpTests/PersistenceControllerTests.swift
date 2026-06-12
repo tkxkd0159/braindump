@@ -118,8 +118,9 @@ struct PersistenceControllerTests {
             try context.save()
         }
 
-        // Reopen the same store file via the migration plan: opens normally and
-        // preserves the offset (proves the V2 schema is stable across reopen).
+        // Reopen the same store file via the versioned schema (no formal
+        // migration plan): opens normally and preserves the offset (proves the
+        // V2 schema is stable across reopen).
         let result = PersistenceController.makeContainer(storeURL: url)
         #expect(result.recovery == .normal)
         let context = ModelContext(result.container)

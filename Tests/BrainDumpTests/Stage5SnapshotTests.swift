@@ -6,44 +6,13 @@ import Testing
 
 @testable import BrainDumpKit
 
-/// In-process rendering of the Stage 5 changes (sidebar toggle, inline task
-/// contents, settings sheet, minute-precision schedule). These complement the
+/// In-process rendering of the Stage 5 changes (inline task contents,
+/// settings sheet, minute-precision schedule). These complement the
 /// live-app screenshot verification — useful when the live window can't be
 /// captured (multi-display setups where the window lands off the recordable
 /// region).
 @MainActor
 struct Stage5SnapshotTests {
-    @Test
-    func captureSidebarVisible() throws {
-        Fonts.registerIfNeeded()
-        let (context, day) = try seed()
-        let state = AppState(
-            context: context,
-            now: { TestDate.at(2026, 5, 22) },
-            wiseSaying: WiseSaying(quote: "Discipline equals freedom.", author: "Jocko Willink"),
-            defaults: ephemeralDefaults()
-        )
-        let view = compositeShell(state: state, day: day, context: context)
-        renderViaHostingWindow(
-            view, size: NSSize(width: 1280, height: 1100), filename: "stage5-sidebar-visible.png")
-    }
-
-    @Test
-    func captureSidebarHidden() throws {
-        Fonts.registerIfNeeded()
-        let (context, day) = try seed()
-        let state = AppState(
-            context: context,
-            now: { TestDate.at(2026, 5, 22) },
-            wiseSaying: WiseSaying(quote: "Discipline equals freedom.", author: "Jocko Willink"),
-            defaults: ephemeralDefaults()
-        )
-        state.isSidebarVisible = false
-        let view = compositeShell(state: state, day: day, context: context)
-        renderViaHostingWindow(
-            view, size: NSSize(width: 1024, height: 1100), filename: "stage5-sidebar-hidden.png")
-    }
-
     @Test
     func captureExpandedTaskCard() throws {
         Fonts.registerIfNeeded()
@@ -138,54 +107,6 @@ struct Stage5SnapshotTests {
         UserDefaults(suiteName: "BrainDumpStage5.\(UUID().uuidString)")!
     }
 
-    /// Composite that approximates AppShell layout without requiring its
-    /// private implementation; renders both visible and hidden sidebar
-    /// states by toggling `state.isSidebarVisible`.
-    private func compositeShell(state: AppState, day: Day, context: ModelContext) -> some View {
-        HStack(spacing: 0) {
-            if state.isSidebarVisible {
-                MiniSidebar()
-            }
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Image(systemName: "sidebar.left")
-                        .font(.system(size: 16))
-                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                        .frame(width: 32, height: 32)
-                    Spacer()
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 12)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Friday, May 22, 2026")
-                            .font(Theme.Font.headlineLg)
-                            .foregroundStyle(Theme.Palette.primary)
-                            .padding(.horizontal, 64)
-                            .padding(.bottom, 24)
-                        HStack(alignment: .top, spacing: 24) {
-                            VStack(alignment: .leading, spacing: 32) {
-                                Top3Section(day: day, isReadOnly: false)
-                                BrainDumpSection(day: day, isReadOnly: false)
-                            }
-                            .frame(width: 360, alignment: .top)
-                            ScheduleSection(
-                                day: day,
-                                isReadOnly: false,
-                                dayStartHour: state.dayStartHour,
-                                dayEndHour: state.dayEndHour
-                            )
-                            .frame(maxWidth: .infinity, alignment: .top)
-                        }
-                        .padding(.horizontal, 64)
-                    }
-                }
-            }
-            .background(Theme.Palette.surface)
-        }
-        .environment(\.modelContext, context)
-    }
-
     private func renderViaHostingWindow<V: View>(_ view: V, size: NSSize, filename: String) {
         let hosting = NSHostingView(rootView: view.frame(width: size.width, height: size.height))
         hosting.frame = NSRect(origin: .zero, size: size)
@@ -215,60 +136,5 @@ struct Stage5SnapshotTests {
         } catch {
             Issue.record("write failed: \(error)")
         }
-    }
-}
-
-private struct MiniSidebar: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Deep Work Planner")
-                    .font(Theme.Font.headlineMd)
-                    .foregroundStyle(Theme.Palette.primary)
-                Text("Daily Timebox Planner")
-                    .font(Theme.Font.labelMd)
-                    .tracking(0.5)
-                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 28)
-            .padding(.bottom, 40)
-            VStack(alignment: .leading, spacing: 6) {
-                nav("calendar.day.timeline.left", "Today", active: true)
-                nav("list.bullet.clipboard", "Tasks", active: false)
-                nav("tray.full", "Backlog", active: false)
-            }
-            .padding(.horizontal, 16)
-            Spacer()
-            Rectangle().fill(Theme.Palette.outlineVariant).frame(height: 1).padding(.horizontal, 16)
-            HStack(spacing: 12) {
-                Image(systemName: "gearshape").font(.system(size: 16)).frame(width: 22)
-                Text("Settings").font(Theme.Font.labelMd).tracking(0.7)
-                Spacer()
-            }
-            .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            .padding(.horizontal, 32)
-            .padding(.vertical, 18)
-            .padding(.bottom, 12)
-        }
-        .frame(width: 256)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .background(Theme.Palette.surfaceContainerLow)
-        .overlay(alignment: .trailing) {
-            Rectangle().fill(Theme.Palette.outlineVariant).frame(width: 1)
-        }
-    }
-
-    private func nav(_ icon: String, _ label: String, active: Bool) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 16, weight: active ? .semibold : .regular))
-                .frame(width: 22)
-            Text(label).font(Theme.Font.labelMd).tracking(0.7)
-            Spacer()
-        }
-        .foregroundStyle(active ? Theme.Palette.primary : Theme.Palette.onSurfaceVariant)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(active ? Theme.Palette.surfaceContainerHigh : Color.clear)
     }
 }
