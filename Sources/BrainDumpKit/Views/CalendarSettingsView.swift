@@ -63,7 +63,7 @@ public struct CalendarSettingsView: View {
             Text("CALENDAR SUBSCRIPTIONS")
                 .font(Theme.Font.sectionLabelHeavy).tracking(1.4)
                 .foregroundStyle(Theme.Palette.onSurface)
-            Text("Subscribe to external calendars by iCal URL (e.g. Google Calendar's \u{201C}Secret address in iCal format\u{201D}). Events appear in the Schedule as read-only, busy blocks.")
+            Text("Subscribe to external calendars by iCal URL. Events appear in the Schedule as read-only, busy blocks.")
                 .font(Theme.Font.bodyMd).foregroundStyle(Theme.Palette.onSurfaceVariant)
         }
     }
