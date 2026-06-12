@@ -7,7 +7,7 @@ public struct SettingsSheet: View {
     @Bindable var updateModel: AppUpdateModel
     let dismiss: () -> Void
 
-    @State private var section: SettingsSection = .general
+    @State private var section: SettingsSection
     @State private var startHour: Int
     @State private var endHour: Int
     @State private var error: String?
@@ -18,11 +18,13 @@ public struct SettingsSheet: View {
     public init(
         state: AppState,
         updateModel: AppUpdateModel = AppUpdateModel(),
+        initialSection: SettingsSection = .general,
         dismiss: @escaping () -> Void
     ) {
         self.state = state
         self.updateModel = updateModel
         self.dismiss = dismiss
+        _section = State(initialValue: initialSection)
         _startHour = State(initialValue: state.dayStartHour)
         _endHour = State(initialValue: state.dayEndHour)
     }
@@ -437,6 +439,6 @@ public struct SettingsSheet: View {
     }
 }
 
-private enum SettingsSection {
+public enum SettingsSection {
     case general, notifications, updates
 }
