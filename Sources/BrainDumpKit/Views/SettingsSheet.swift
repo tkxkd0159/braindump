@@ -279,12 +279,74 @@ public struct SettingsSheet: View {
     }
 
     private var notificationsSection: some View {
-        VStack {
-            Text("No notification settings yet.")
-                .font(Theme.Font.bodyMd)
-                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("BACKLOG REMINDERS")
+                        .font(Theme.Font.sectionLabelHeavy)
+                        .tracking(1.4)
+                        .foregroundStyle(Theme.Palette.onSurface)
+                    Text("Once a day, get a notification counting how many backlog tasks are older than your threshold. Scheduled time blocks can also carry their own reminder, set when you add the block.")
+                        .font(Theme.Font.bodyMd)
+                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                }
+
+                Toggle(isOn: $state.backlogDigestEnabled) {
+                    Text("Enable daily backlog reminder")
+                        .font(Theme.Font.bodyMd)
+                        .foregroundStyle(Theme.Palette.onSurface)
+                }
+                .toggleStyle(.switch)
+
+                if state.backlogDigestEnabled {
+                    HStack(alignment: .top, spacing: 28) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Older than")
+                                .font(Theme.Font.labelMd)
+                                .foregroundStyle(Theme.Palette.onSurface)
+                            Stepper(value: $state.backlogDigestThresholdDays, in: 1...60) {
+                                Text("\(state.backlogDigestThresholdDays) day\(state.backlogDigestThresholdDays == 1 ? "" : "s")")
+                                    .font(Theme.Font.bodyMd)
+                                    .foregroundStyle(Theme.Palette.onSurface)
+                            }
+                            .fixedSize()
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Notify at")
+                                .font(Theme.Font.labelMd)
+                                .foregroundStyle(Theme.Palette.onSurface)
+                            DatePicker("", selection: digestTimeBinding, displayedComponents: .hourAndMinute)
+                                .labelsHidden()
+                        }
+                    }
+
+                    if state.notificationsDenied {
+                        Text("Notifications are turned off for Brain Dump. Turn them on in System Settings \u{203A} Notifications to receive reminders.")
+                            .font(Theme.Font.caption)
+                            .foregroundStyle(Theme.Palette.secondary)
+                    }
+                }
+            }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 24)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Bridges the stored hour/minute to the `DatePicker`'s `Date` API.
+    private var digestTimeBinding: Binding<Date> {
+        Binding(
+            get: {
+                Calendar.current.date(
+                    bySettingHour: state.backlogDigestHour,
+                    minute: state.backlogDigestMinute, second: 0, of: Date()) ?? Date()
+            },
+            set: { newValue in
+                let c = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+                state.backlogDigestHour = c.hour ?? 9
+                state.backlogDigestMinute = c.minute ?? 0
+            })
     }
 
     private var updatesSection: some View {
