@@ -14,6 +14,7 @@ public final class AppState {
     private let context: ModelContext
     private let now: () -> Date
     private let dayService: DayService
+    private let notificationCoordinator: NotificationCoordinator
     private let defaults: UserDefaults
 
     public private(set) var todayDate: Date
@@ -30,6 +31,10 @@ public final class AppState {
 
     private static let dayStartHourKey = "BrainDump.dayStartHour"
     private static let dayEndHourKey = "BrainDump.dayEndHour"
+    private static let digestEnabledKey = "BrainDump.backlogDigestEnabled"
+    private static let digestThresholdKey = "BrainDump.backlogDigestThresholdDays"
+    private static let digestHourKey = "BrainDump.backlogDigestHour"
+    private static let digestMinuteKey = "BrainDump.backlogDigestMinute"
 
     public var dayStartHour: Int {
         didSet { defaults.set(dayStartHour, forKey: Self.dayStartHourKey) }
@@ -37,6 +42,25 @@ public final class AppState {
     public var dayEndHour: Int {
         didSet { defaults.set(dayEndHour, forKey: Self.dayEndHourKey) }
     }
+
+    /// Backlog-age digest preferences (persisted, like the day-window hours).
+    /// Each setter re-arms the digest so a change takes effect immediately.
+    public var backlogDigestEnabled: Bool {
+        didSet { defaults.set(backlogDigestEnabled, forKey: Self.digestEnabledKey); syncBacklogDigest() }
+    }
+    public var backlogDigestThresholdDays: Int {
+        didSet { defaults.set(backlogDigestThresholdDays, forKey: Self.digestThresholdKey); syncBacklogDigest() }
+    }
+    public var backlogDigestHour: Int {
+        didSet { defaults.set(backlogDigestHour, forKey: Self.digestHourKey); syncBacklogDigest() }
+    }
+    public var backlogDigestMinute: Int {
+        didSet { defaults.set(backlogDigestMinute, forKey: Self.digestMinuteKey); syncBacklogDigest() }
+    }
+
+    /// True if the system has denied notification permission — Settings shows a
+    /// hint pointing the user to System Settings.
+    public var notificationsDenied: Bool { notificationCoordinator.lastAuthorizationDenied }
 
     public var dayStartMinute: Int { dayStartHour * 60 }
     public var dayEndMinute: Int { dayEndHour * 60 }
@@ -65,11 +89,13 @@ public final class AppState {
         context: ModelContext,
         now: @escaping () -> Date = { Date() },
         wiseSaying: WiseSaying = WiseSayings.random(),
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        notifier: UserNotifying = NoopUserNotifying()
     ) {
         self.context = context
         self.now = now
         self.dayService = DayService(context: context)
+        self.notificationCoordinator = NotificationCoordinator(notifier: notifier)
         self.defaults = defaults
         let today = now().startOfLocalDay()
         self.todayDate = today
@@ -79,6 +105,11 @@ public final class AppState {
         let storedEnd = defaults.object(forKey: Self.dayEndHourKey) as? Int
         self.dayStartHour = storedStart ?? 5
         self.dayEndHour = storedEnd ?? 22
+        // Property observers don't fire during init, so these don't trigger a sync.
+        self.backlogDigestEnabled = defaults.object(forKey: Self.digestEnabledKey) as? Bool ?? false
+        self.backlogDigestThresholdDays = defaults.object(forKey: Self.digestThresholdKey) as? Int ?? 7
+        self.backlogDigestHour = defaults.object(forKey: Self.digestHourKey) as? Int ?? 9
+        self.backlogDigestMinute = defaults.object(forKey: Self.digestMinuteKey) as? Int ?? 0
         self.dayService.rollover(now: today)
     }
 
@@ -122,11 +153,70 @@ public final class AppState {
             selectedDate = newToday
         }
         dataGeneration += 1
+        refreshAllNotifications()
         return true
     }
 
     public func toggleSidebar() {
         isSidebarVisible.toggle()
+    }
+
+    // MARK: - Notifications
+
+    /// Snapshot a day's schedule entries into the planner's input shape.
+    public func scheduleReminderInputs(for day: Day) -> [ReminderInput] {
+        let dayStart = day.date
+        return day.schedule.map { entry in
+            ReminderInput(
+                entryID: entry.id, dayStart: dayStart, startMinute: entry.startMinute,
+                offsetMinutes: entry.reminderOffsetMinutes, isCompleted: entry.isCompleted,
+                title: entry.item?.title ?? "Scheduled task")
+        }
+    }
+
+    /// Snapshot the backlog into the digest planner's input shape.
+    public func backlogDigestInputs() -> [BacklogInput] {
+        BacklogService(context: context).listBacklog().map { BacklogInput(createdAt: $0.createdAt) }
+    }
+
+    /// Re-arm the reminders for one day's schedule (called after edits to it).
+    public func syncScheduleNotifications(for day: Day) {
+        let inputs = scheduleReminderInputs(for: day)
+        let n = now()
+        Task { await notificationCoordinator.syncScheduleReminders(inputs: inputs, now: n) }
+    }
+
+    /// Re-arm (or cancel) the backlog digest from current settings + backlog.
+    public func syncBacklogDigest() {
+        let inputs = backlogDigestInputs()
+        let n = now()
+        let enabled = backlogDigestEnabled
+        let threshold = backlogDigestThresholdDays
+        let hour = backlogDigestHour
+        let minute = backlogDigestMinute
+        Task {
+            await notificationCoordinator.syncBacklogDigest(
+                inputs: inputs, enabled: enabled, thresholdDays: threshold,
+                hour: hour, minute: minute, now: n)
+        }
+    }
+
+    /// Reconcile every notification against current state. Safe to call from
+    /// launch / activation / day-change / a timer — it never *creates* a Day
+    /// (uses today's day only if it already exists), so it won't resurrect data
+    /// after a wipe.
+    public func refreshAllNotifications() {
+        syncBacklogDigest()
+        let inputs = existingDay(for: todayDate).map { scheduleReminderInputs(for: $0) } ?? []
+        let n = now()
+        Task { await notificationCoordinator.syncScheduleReminders(inputs: inputs, now: n) }
+    }
+
+    /// Today's `Day` if it already exists, without inserting one.
+    private func existingDay(for date: Date) -> Day? {
+        let target = date.startOfLocalDay()
+        let predicate = #Predicate<Day> { $0.date == target }
+        return (try? context.fetch(FetchDescriptor<Day>(predicate: predicate)))?.first
     }
 
     /// Update the day-window bounds. Returns false if invalid (caller can show an
@@ -149,6 +239,7 @@ public final class AppState {
         selectedDate = todayDate
         selectedDestination = .today
         dataGeneration += 1
+        refreshAllNotifications()
     }
 
     /// Serialize all data to a JSON backup.
@@ -163,5 +254,6 @@ public final class AppState {
         selectedDate = todayDate
         selectedDestination = .today
         dataGeneration += 1
+        refreshAllNotifications()
     }
 }
