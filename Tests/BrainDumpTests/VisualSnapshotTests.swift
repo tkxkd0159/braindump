@@ -71,6 +71,38 @@ struct VisualSnapshotTests {
     }
 
     @Test
+    func captureScheduleSectionWithCalendarEvents() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        let scheduleService = ScheduleService(context: context)
+        let focus = taskService.addBrainDumpItem(title: "Deep work", on: day)
+        _ = try scheduleService.schedule(focus, on: day, startMinute: 8 * 60, durationMinutes: 60)
+
+        let feedID = UUID()
+        let events = [
+            CalendarEvent(id: "e1", feedID: feedID, title: "Standup",
+                          start: TestDate.at(2026, 5, 22, hour: 9, minute: 30),
+                          end: TestDate.at(2026, 5, 22, hour: 10), isAllDay: false, colorIndex: 1),
+            CalendarEvent(id: "e2", feedID: feedID, title: "Design review",
+                          start: TestDate.at(2026, 5, 22, hour: 13),
+                          end: TestDate.at(2026, 5, 22, hour: 14, minute: 30), isAllDay: false, colorIndex: 6),
+            CalendarEvent(id: "e3", feedID: feedID, title: "Company Holiday",
+                          start: TestDate.at(2026, 5, 22), end: TestDate.at(2026, 5, 23),
+                          isAllDay: true, colorIndex: 3),
+        ]
+
+        let view = ScheduleSection(day: day, isReadOnly: false, calendarEvents: events)
+            .environment(\.modelContext, context)
+            .padding(24)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 700, height: 1400),
+            filename: "snapshot-schedule-calendar.png")
+    }
+
+    @Test
     func captureLeftColumn() throws {
         Fonts.registerIfNeeded()
         let context = try InMemoryStore.makeContext()
