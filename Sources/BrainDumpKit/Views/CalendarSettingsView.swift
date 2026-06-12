@@ -8,6 +8,7 @@ public struct CalendarSettingsView: View {
     @State private var newURL: String = ""
     @State private var newColor: Int = 0
     @State private var pendingDeletion: CalendarFeed?
+    @State private var editingFeed: CalendarFeed?
 
     public init(state: AppState) { self.state = state }
 
@@ -43,6 +44,18 @@ public struct CalendarSettingsView: View {
         } message: { feed in
             Text("Remove \u{201C}\(feed.name.isEmpty ? "this calendar" : feed.name)\u{201D} and all of its events from your schedule? This doesn't change the calendar itself, and you can re-add it anytime.")
         }
+        .sheet(item: $editingFeed) { feed in
+            EditFeedSheet(
+                feed: feed,
+                onSave: { updated in
+                    calendar.updateFeed(updated)
+                    editingFeed = nil
+                    // Re-fetch so a changed URL loads new events and a changed
+                    // color re-materializes existing ones immediately.
+                    Task { await calendar.refresh() }
+                },
+                onCancel: { editingFeed = nil })
+        }
     }
 
     private var intro: some View {
@@ -74,6 +87,13 @@ public struct CalendarSettingsView: View {
                         get: { feed.isEnabled },
                         set: { enabled in Task { await calendar.setFeedEnabled(id: feed.id, enabled) } }))
                         .labelsHidden()
+                    Button(action: { editingFeed = feed }) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                            .frame(width: 28, height: 28).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain).help("Edit subscription")
                     Button(action: { pendingDeletion = feed }) {
                         Image(systemName: "trash")
                             .font(.system(size: 13))
@@ -131,5 +151,74 @@ public struct CalendarSettingsView: View {
         calendar.addFeed(name: name.isEmpty ? "Calendar" : name, urlString: url, colorIndex: newColor)
         newName = ""; newURL = ""; newColor = 0
         Task { await calendar.refresh() }
+    }
+}
+
+/// Modal for editing an existing subscription's name, URL, and color. Pre-filled
+/// from the feed; `onSave` hands back a copy with the same `id` so the caller can
+/// `updateFeed` in place (and refresh to apply a changed URL/color).
+struct EditFeedSheet: View {
+    let feed: CalendarFeed
+    let onSave: (CalendarFeed) -> Void
+    let onCancel: () -> Void
+
+    @State private var name: String
+    @State private var urlString: String
+    @State private var colorIndex: Int
+
+    init(feed: CalendarFeed, onSave: @escaping (CalendarFeed) -> Void, onCancel: @escaping () -> Void) {
+        self.feed = feed
+        self.onSave = onSave
+        self.onCancel = onCancel
+        _name = State(initialValue: feed.name)
+        _urlString = State(initialValue: feed.urlString)
+        _colorIndex = State(initialValue: feed.colorIndex)
+    }
+
+    private var trimmedURL: String { urlString.trimmingCharacters(in: .whitespaces) }
+    private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
+    private var isValid: Bool { URL(string: trimmedURL)?.scheme != nil }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("EDIT SUBSCRIPTION")
+                .font(Theme.Font.sectionLabelHeavy).tracking(1.4)
+                .foregroundStyle(Theme.Palette.onSurface)
+            TextField("Name (e.g. Work)", text: $name).textFieldStyle(.roundedBorder)
+            TextField("https://calendar.google.com/calendar/ical/.../basic.ics", text: $urlString)
+                .textFieldStyle(.roundedBorder)
+            ColorSwatchRow(selected: $colorIndex)
+            HStack(spacing: 12) {
+                Spacer()
+                Button(action: onCancel) {
+                    Text("Cancel")
+                        .font(Theme.Font.labelMd).padding(.horizontal, 18).frame(height: 34)
+                        .foregroundStyle(Theme.Palette.primary)
+                        .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                Button(action: save) {
+                    Text("Save")
+                        .font(Theme.Font.labelMd).padding(.horizontal, 18).frame(height: 34)
+                        .foregroundStyle(Theme.Palette.onPrimary).background(Theme.Palette.primary)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!isValid)
+            }
+        }
+        .padding(24)
+        .frame(width: 460)
+        .background(Theme.Palette.surfaceContainerLowest)
+    }
+
+    private func save() {
+        guard isValid else { return }
+        var updated = feed
+        updated.name = trimmedName.isEmpty ? "Calendar" : trimmedName
+        updated.urlString = trimmedURL
+        updated.colorIndex = colorIndex
+        onSave(updated)
     }
 }

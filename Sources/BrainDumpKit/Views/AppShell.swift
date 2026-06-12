@@ -25,8 +25,8 @@ public struct AppShell: View {
     static let canvasMin: CGFloat = 64 + 360 + 24 + 480 + 64
     static let sidebarThreshold: CGFloat = canvasMin + sidebarWidth
 
-    // Top inset shared by the sidebar title and every tab's content, so each
-    // tab's first row lines up with the "Daily Timebox Planner" title.
+    // Top inset shared by the sidebar's first nav item and every tab's content,
+    // so the sidebar navigation lines up with the canvas's date header.
     static let contentTopInset: CGFloat = 28
 
     public init(
@@ -114,16 +114,6 @@ private struct Sidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Daily Timebox Planner")
-                    .font(Theme.Font.headlineSmall)
-                    .tracking(0.5)
-                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, AppShell.contentTopInset)
-            .padding(.bottom, 40)
-
             VStack(alignment: .leading, spacing: 6) {
                 NavItem(
                     icon: "calendar.day.timeline.left", label: "Today", destination: .today,
@@ -134,6 +124,7 @@ private struct Sidebar: View {
                 NavItem(icon: "tray.full", label: "Backlog", destination: .backlog, state: state)
             }
             .padding(.horizontal, 16)
+            .padding(.top, AppShell.contentTopInset)
 
             Spacer()
 
@@ -148,7 +139,7 @@ private struct Sidebar: View {
                             .font(.system(size: 16, weight: .regular))
                             .frame(width: 22)
                         Text("Settings")
-                            .font(Theme.Font.labelMd)
+                            .font(Theme.Font.navLabel)
                             .tracking(0.7)
                         Spacer(minLength: 0)
                     }
@@ -200,7 +191,7 @@ private struct NavItem: View {
                     .font(.system(size: 16, weight: isActive ? .semibold : .regular))
                     .frame(width: 22)
                 Text(label)
-                    .font(Theme.Font.labelMd)
+                    .font(Theme.Font.navLabel)
                     .tracking(0.7)
                 Spacer(minLength: 0)
             }

@@ -137,6 +137,33 @@ END:VEVENT
     #expect(svc.events(on: TestDate.at(2026, 5, 22)).count == 2)
 }
 
+@MainActor
+@Test func updateFeedChangesURLNameColorAndRefetches() async {
+    // Editing a subscription must repoint the feed (URL/name/color) and, after a
+    // refresh, swap in the new URL's events recolored to the new swatch.
+    let urlA = "https://feed/a.ics", urlB = "https://feed/b.ics"
+    let icsB = busyICS.replacingOccurrences(of: "m1", with: "m2")
+        .replacingOccurrences(of: "T100000Z", with: "T140000Z")
+        .replacingOccurrences(of: "T110000Z", with: "T150000Z")
+    let feed = CalendarFeed(name: "Work", urlString: urlA, colorIndex: 1)
+    let svc = makeService(StubFetcher(byURL: [urlA: busyICS, urlB: icsB]), feeds: [feed])
+    await svc.refresh()
+    #expect(svc.events(on: TestDate.at(2026, 5, 22)).first?.colorIndex == 1)
+
+    var edited = feed
+    edited.urlString = urlB
+    edited.name = "Work Calendar"
+    edited.colorIndex = 4
+    svc.updateFeed(edited)
+    await svc.refresh()
+
+    #expect(svc.feeds.first?.name == "Work Calendar")
+    #expect(svc.feeds.first?.urlString == urlB)
+    let events = svc.events(on: TestDate.at(2026, 5, 22))
+    #expect(events.count == 1)
+    #expect(events.first?.colorIndex == 4) // recolored to the new swatch after refresh
+}
+
 @Test func mergeRangesCombinesOverlaps() {
     #expect(CalendarService.merge([60..<120, 100..<180, 300..<360]) == [60..<180, 300..<360])
 }

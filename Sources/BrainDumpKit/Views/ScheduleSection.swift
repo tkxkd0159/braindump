@@ -191,8 +191,11 @@ public struct ScheduleSection: View {
 
     private func slotRow(hour: Int, isTopOfHour: Bool) -> some View {
         HStack(alignment: .top, spacing: 0) {
+            // Align the time label with the grid line at the TOP of its slot —
+            // the line that marks where a block at this time begins. Previously a
+            // .padding(.top, 8) pushed each label 8pt below that line, so every
+            // time read as lower than the block it labels.
             timeLabel(hour: hour, isTopOfHour: isTopOfHour)
-                .padding(.top, 8)
                 .padding(.trailing, 16)
                 .frame(width: Self.timeLabelWidth, height: Self.slotHeight, alignment: .topTrailing)
                 .overlay(alignment: .trailing) {

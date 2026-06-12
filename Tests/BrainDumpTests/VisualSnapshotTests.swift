@@ -128,6 +128,20 @@ struct VisualSnapshotTests {
     }
 
     @Test
+    func captureCalendarSettingsEditSheet() throws {
+        Fonts.registerIfNeeded()
+        let view = EditFeedSheet(
+            feed: CalendarFeed(
+                name: "Work",
+                urlString: "https://calendar.google.com/calendar/ical/work/basic.ics",
+                colorIndex: 1),
+            onSave: { _ in }, onCancel: {})
+            .background(Theme.Palette.surfaceContainerLowest)
+        renderViaHostingWindow(view, size: NSSize(width: 460, height: 360),
+                               filename: "snapshot-calendar-edit-sheet.png")
+    }
+
+    @Test
     func captureLeftColumn() throws {
         Fonts.registerIfNeeded()
         let context = try InMemoryStore.makeContext()
@@ -235,10 +249,10 @@ struct VisualSnapshotTests {
         #expect(AppShell.sidebarThreshold == 1248)
     }
 
-    /// `contentTopInset` is the single inset the sidebar title and every tab's
-    /// content both use, so their tops line up with the sidebar toggle button.
+    /// `contentTopInset` is the single inset the sidebar's first nav item and
+    /// every tab's content both use, so their tops line up with the date header.
     @Test
-    func contentTopInsetAlignsSidebarTitleAndCanvasContent() {
+    func contentTopInsetAlignsSidebarNavAndCanvasContent() {
         #expect(AppShell.contentTopInset == 28)
     }
 
@@ -835,21 +849,13 @@ struct VisualSnapshotTests {
 private struct SidebarPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Daily Timebox Planner")
-                    .font(Theme.Font.labelMd)
-                    .tracking(0.5)
-                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 28)
-            .padding(.bottom, 40)
             VStack(alignment: .leading, spacing: 6) {
                 navItem("calendar.day.timeline.left", "Today", isActive: true)
                 navItem("list.bullet.clipboard", "Tasks", isActive: false)
                 navItem("tray.full", "Backlog", isActive: false)
             }
             .padding(.horizontal, 16)
+            .padding(.top, 28)
             Spacer()
             Rectangle()
                 .fill(Theme.Palette.outlineVariant)
@@ -874,7 +880,7 @@ private struct SidebarPreview: View {
                 .font(.system(size: 16, weight: isActive ? .semibold : .regular))
                 .frame(width: 22)
             Text(label)
-                .font(Theme.Font.labelMd)
+                .font(Theme.Font.navLabel)
                 .tracking(0.7)
             Spacer(minLength: 0)
         }
