@@ -66,12 +66,17 @@ public struct AppShell: View {
                 // after waking), and on a periodic fallback tick.
                 .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
                     state.refreshCurrentDate()
+                    state.refreshAllNotifications()
                 }
                 .onReceive(dateRefreshTimer) { _ in
                     state.refreshCurrentDate()
+                    state.refreshAllNotifications()
                 }
                 .onChange(of: scenePhase) { _, newPhase in
-                    if newPhase == .active { state.refreshCurrentDate() }
+                    if newPhase == .active {
+                        state.refreshCurrentDate()
+                        state.refreshAllNotifications()
+                    }
                 }
             } else {
                 ProgressView()
@@ -82,9 +87,12 @@ public struct AppShell: View {
         }
         .onAppear {
             if state == nil {
-                let created = AppState(context: context)
+                let created = AppState(context: context, notifier: SystemUserNotifying())
                 if let initialDestination { created.selectedDestination = initialDestination }
                 state = created
+                // First reconcile: arms any reminders/digest already configured.
+                // Requests no permission unless something is actually scheduled.
+                created.refreshAllNotifications()
             }
         }
         .alert("Data could not be opened", isPresented: $showRecoveryNotice) {

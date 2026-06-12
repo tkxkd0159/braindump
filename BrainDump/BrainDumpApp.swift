@@ -1,18 +1,32 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 import BrainDumpKit
+
+/// Presents banners/sound even when Brain Dump is the frontmost app — without
+/// this, local notifications are silently suppressed while the app is active.
+final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound]
+    }
+}
 
 @main
 struct BrainDumpApp: App {
     let container: ModelContainer
     let storeRecovery: StoreRecovery
     let updater = SparkleUpdaterController()
+    let notificationPresenter = NotificationPresenter()
 
     init() {
         Fonts.registerIfNeeded()
         let result = PersistenceController.makeContainer()
         container = result.container
         storeRecovery = result.recovery
+        UNUserNotificationCenter.current().delegate = notificationPresenter
     }
 
     var body: some Scene {
