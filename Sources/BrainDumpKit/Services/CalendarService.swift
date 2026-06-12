@@ -123,15 +123,17 @@ public final class CalendarService {
         let masters = parsed.filter { $0.recurrenceID == nil }
         var overrideMap: [String: ParsedICalEvent] = [:]
         for o in overrides {
-            overrideMap["\(o.uid)@\(o.recurrenceID!.timeIntervalSinceReferenceDate.rounded())"] = o
+            overrideMap[overrideKey(uid: o.uid, date: o.recurrenceID!)] = o
         }
 
         var out: [CalendarEvent] = []
+        var consumed: Set<String> = []
         for master in masters {
             let occ = RecurrenceExpander.occurrences(of: master, in: window, calendar: calendar)
             for (start, end) in occ {
-                let key = "\(master.uid)@\(start.timeIntervalSinceReferenceDate.rounded())"
+                let key = overrideKey(uid: master.uid, date: start)
                 if let ov = overrideMap[key] {
+                    consumed.insert(key)
                     out.append(event(feed: feed, uid: master.uid, start: ov.start, end: ov.end,
                                      title: ov.summary, isAllDay: ov.isAllDay))
                 } else {
@@ -140,7 +142,25 @@ public final class CalendarService {
                 }
             }
         }
+
+        // Orphan overrides: RECURRENCE-ID instances with no matching master
+        // occurrence. Google Calendar's basic.ics exports recurring series this
+        // way — every instance is its own VEVENT with a RECURRENCE-ID and no
+        // RRULE master — so without this they'd all be dropped. They are concrete
+        // occurrences; emit any that overlap the window directly.
+        for o in overrides {
+            let key = overrideKey(uid: o.uid, date: o.recurrenceID!)
+            guard !consumed.contains(key) else { continue }
+            guard o.start < window.upperBound, o.end > window.lowerBound else { continue }
+            out.append(event(feed: feed, uid: o.uid, start: o.start, end: o.end,
+                             title: o.summary, isAllDay: o.isAllDay))
+        }
         return out
+    }
+
+    /// Stable key matching a master occurrence start to a RECURRENCE-ID override.
+    private static func overrideKey(uid: String, date: Date) -> String {
+        "\(uid)@\(date.timeIntervalSinceReferenceDate.rounded())"
     }
 
     private static func event(feed: CalendarFeed, uid: String, start: Date, end: Date,

@@ -94,6 +94,37 @@ END:VEVENT
 }
 
 @MainActor
+@Test func googleStyleRecurrenceInstancesWithoutMasterAppear() async {
+    // Google Calendar's basic.ics exports each recurring instance as its own
+    // VEVENT carrying a RECURRENCE-ID and NO RRULE master. These are concrete
+    // occurrences and must still be shown — previously materialize treated them
+    // as orphan overrides with no master to graft onto and silently dropped them.
+    let ics = """
+    BEGIN:VEVENT
+    UID:standup_R20260508T100000@google.com
+    SUMMARY:Standup
+    DTSTART:20260522T100000Z
+    DTEND:20260522T103000Z
+    RECURRENCE-ID:20260522T100000Z
+    END:VEVENT
+    BEGIN:VEVENT
+    UID:standup_R20260508T100000@google.com
+    SUMMARY:Standup
+    DTSTART:20260523T100000Z
+    DTEND:20260523T103000Z
+    RECURRENCE-ID:20260523T100000Z
+    END:VEVENT
+    """
+    let url = "https://feed/google.ics"
+    let svc = makeService(StubFetcher(byURL: [url: ics]),
+                          feeds: [CalendarFeed(name: "Work", urlString: url, colorIndex: 1)])
+    await svc.refresh()
+    #expect(svc.events(on: TestDate.at(2026, 5, 22)).count == 1)
+    #expect(svc.events(on: TestDate.at(2026, 5, 23)).count == 1)
+    #expect(!svc.busyRanges(on: TestDate.at(2026, 5, 22)).isEmpty)
+}
+
+@MainActor
 @Test func mergesMultipleFeeds() async {
     let icsB = busyICS.replacingOccurrences(of: "m1", with: "m2")
         .replacingOccurrences(of: "T100000Z", with: "T140000Z")
