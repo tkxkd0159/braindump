@@ -264,3 +264,32 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
     scheduleService.setCompleted(entry, false)
     #expect(entry.completedAt == nil)
 }
+
+@MainActor
+@Test func scheduleStoresReminderOffset() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(
+        item, on: day, startMinute: 540, durationMinutes: 60, reminderOffsetMinutes: 15)
+    #expect(entry.reminderOffsetMinutes == 15)
+}
+
+@MainActor
+@Test func scheduleDefaultsToNoReminderOffset() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 540, durationMinutes: 60)
+    #expect(entry.reminderOffsetMinutes == nil)
+}
+
+@MainActor
+@Test func setReminderOffsetUpdatesEntry() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 540, durationMinutes: 60)
+
+    scheduleService.setReminderOffset(entry, 30)
+    #expect(entry.reminderOffsetMinutes == 30)
+    scheduleService.setReminderOffset(entry, nil)
+    #expect(entry.reminderOffsetMinutes == nil)
+}

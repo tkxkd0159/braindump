@@ -15,7 +15,8 @@ public final class ScheduleService {
         on day: Day,
         startMinute: Int,
         durationMinutes: Int,
-        colorIndex: Int = 0
+        colorIndex: Int = 0,
+        reminderOffsetMinutes: Int? = nil
     ) throws -> ScheduleEntry {
         guard durationMinutes >= 15, startMinute >= 0, startMinute + durationMinutes <= 24 * 60 else {
             throw TodoError.scheduleOutOfRange
@@ -31,6 +32,7 @@ public final class ScheduleService {
             startMinute: startMinute,
             durationMinutes: durationMinutes,
             colorIndex: colorIndex,
+            reminderOffsetMinutes: reminderOffsetMinutes,
             item: item,
             day: day
         )
@@ -74,6 +76,12 @@ public final class ScheduleService {
 
     public func setColorIndex(_ entry: ScheduleEntry, _ index: Int) {
         entry.colorIndex = max(0, min(Theme.BlockPalette.colors.count - 1, index))
+        try? context.save()
+    }
+
+    /// Set (or clear, with `nil`) the reminder lead time on a schedule entry.
+    public func setReminderOffset(_ entry: ScheduleEntry, _ offset: Int?) {
+        entry.reminderOffsetMinutes = offset
         try? context.save()
     }
 }
