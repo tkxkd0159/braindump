@@ -236,3 +236,20 @@ import SwiftData
     state.toggleSidebar()
     #expect(state.isSidebarVisible)
 }
+
+@MainActor
+@Test func appStateExposesInjectedCalendarService() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "test.appstate.cal.\(UUID().uuidString)")!
+    let store = CalendarFeedStore(defaults: defaults)
+    store.save([CalendarFeed(name: "Work", urlString: "https://x/a.ics")])
+    let calendar = CalendarService(
+        store: store,
+        fetcher: URLSessionICalFeedFetcher(),
+        cache: CalendarCache(url: URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("as-\(UUID().uuidString).json")),
+        now: { TestDate.at(2026, 5, 22) })
+    let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) },
+                         defaults: defaults, calendarService: calendar)
+    #expect(state.calendar.feeds.map(\.name) == ["Work"])
+}
