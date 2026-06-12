@@ -103,6 +103,31 @@ struct VisualSnapshotTests {
     }
 
     @Test
+    func captureCalendarSettings() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let defaults = UserDefaults(suiteName: "snap.cal.\(UUID().uuidString)")!
+        let store = CalendarFeedStore(defaults: defaults)
+        store.save([
+            CalendarFeed(name: "Work", urlString: "https://calendar.google.com/calendar/ical/work/basic.ics", colorIndex: 1),
+            CalendarFeed(name: "Personal", urlString: "https://calendar.google.com/calendar/ical/me/basic.ics", colorIndex: 6, isEnabled: false),
+        ])
+        let calendar = CalendarService(
+            store: store, fetcher: URLSessionICalFeedFetcher(),
+            cache: CalendarCache(url: URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("snap-\(UUID().uuidString).json")),
+            now: { TestDate.at(2026, 5, 22) })
+        let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) },
+                             defaults: defaults, calendarService: calendar)
+
+        let view = CalendarSettingsView(state: state)
+            .environment(\.modelContext, context)
+            .frame(width: 560)
+            .background(Theme.Palette.surfaceContainerLowest)
+        renderViaHostingWindow(view, size: NSSize(width: 560, height: 640),
+                               filename: "snapshot-calendar-settings.png")
+    }
+
+    @Test
     func captureLeftColumn() throws {
         Fonts.registerIfNeeded()
         let context = try InMemoryStore.makeContext()
