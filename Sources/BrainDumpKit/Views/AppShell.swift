@@ -65,6 +65,18 @@ public struct AppShell: View {
                 state = created
             }
         }
+        // Refresh calendar subscriptions once `state` exists, then every 30
+        // minutes while the window is open. The initial refresh paints over the
+        // disk-cached events already shown. Re-runs when state flips nil→set.
+        .task(id: state == nil) {
+            guard let state else { return }
+            await state.calendar.refresh()
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 30 * 60 * 1_000_000_000)
+                if Task.isCancelled { break }
+                await state.calendar.refresh()
+            }
+        }
         .alert("Data could not be opened", isPresented: $showRecoveryNotice) {
             Button("OK", role: .cancel) {}
         } message: {
