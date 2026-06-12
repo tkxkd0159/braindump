@@ -253,3 +253,108 @@ import SwiftData
                          defaults: defaults, calendarService: calendar)
     #expect(state.calendar.feeds.map(\.name) == ["Work"])
 }
+
+// MARK: - Automatic date refresh (clock crosses into a new local day)
+
+@MainActor
+@Test func refreshAdvancesToNewDayWhenViewingToday() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    // App opened just before midnight on the 21st.
+    var clock = TestDate.at(2026, 5, 21, hour: 23, minute: 59)
+    let state = AppState(context: context, now: { clock }, defaults: defaults)
+    #expect(state.todayDate == TestDate.at(2026, 5, 21))
+    #expect(state.selectedDate == TestDate.at(2026, 5, 21))
+    #expect(state.isToday)
+    let genBefore = state.dataGeneration
+
+    // Clock crosses midnight into the 22nd while the app is still open.
+    clock = TestDate.at(2026, 5, 22, hour: 0, minute: 1)
+    let changed = state.refreshCurrentDate()
+
+    #expect(changed)
+    #expect(state.todayDate == TestDate.at(2026, 5, 22))
+    // User was viewing "today", so the selection follows forward to the new day.
+    #expect(state.selectedDate == TestDate.at(2026, 5, 22))
+    #expect(state.isToday)
+    #expect(state.dataGeneration == genBefore + 1)
+}
+
+@MainActor
+@Test func refreshRollsOverUncompletedItemsToNewDay() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let yesterday = dayService.day(for: TestDate.at(2026, 5, 21))
+    _ = taskService.addBrainDumpItem(title: "Carry me forward", on: yesterday)
+
+    var clock = TestDate.at(2026, 5, 21, hour: 22)
+    let state = AppState(context: context, now: { clock }, defaults: defaults)
+    #expect(dayService.day(for: TestDate.at(2026, 5, 21)).items.count == 1)
+
+    clock = TestDate.at(2026, 5, 22, hour: 6)
+    #expect(state.refreshCurrentDate())
+
+    // The uncompleted item is re-parented to the new today; the old day is empty.
+    let newToday = dayService.day(for: TestDate.at(2026, 5, 22))
+    #expect(newToday.items.map(\.title) == ["Carry me forward"])
+    #expect(dayService.day(for: TestDate.at(2026, 5, 21)).items.isEmpty)
+}
+
+@MainActor
+@Test func refreshIsNoOpWhenDayUnchanged() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    var clock = TestDate.at(2026, 5, 22, hour: 9)
+    let state = AppState(context: context, now: { clock }, defaults: defaults)
+    let genBefore = state.dataGeneration
+
+    // Time advances within the same calendar day.
+    clock = TestDate.at(2026, 5, 22, hour: 17, minute: 45)
+    let changed = state.refreshCurrentDate()
+
+    #expect(!changed)
+    #expect(state.todayDate == TestDate.at(2026, 5, 22))
+    #expect(state.dataGeneration == genBefore)
+}
+
+@MainActor
+@Test func refreshKeepsSelectionOnPastDayButAdvancesToday() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    var clock = TestDate.at(2026, 5, 22, hour: 9)
+    let state = AppState(context: context, now: { clock }, defaults: defaults)
+    state.goToPreviousDay()  // browsing the 21st while today is the 22nd
+    #expect(state.selectedDate == TestDate.at(2026, 5, 21))
+    let genBefore = state.dataGeneration
+
+    clock = TestDate.at(2026, 5, 23, hour: 1)
+    let changed = state.refreshCurrentDate()
+
+    #expect(changed)
+    #expect(state.todayDate == TestDate.at(2026, 5, 23))
+    // Not viewing today, so the selection stays put on the past day.
+    #expect(state.selectedDate == TestDate.at(2026, 5, 21))
+    #expect(state.isPast)
+    #expect(state.dataGeneration == genBefore + 1)
+}
+
+@MainActor
+@Test func refreshIsIdempotentWhenCalledTwice() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    var clock = TestDate.at(2026, 5, 21, hour: 23)
+    let state = AppState(context: context, now: { clock }, defaults: defaults)
+    let genBefore = state.dataGeneration
+
+    clock = TestDate.at(2026, 5, 22, hour: 0, minute: 30)
+    #expect(state.refreshCurrentDate())
+    let genAfterFirst = state.dataGeneration
+    #expect(genAfterFirst == genBefore + 1)
+
+    // A second call with the clock unchanged is a no-op (no extra rebuild).
+    #expect(!state.refreshCurrentDate())
+    #expect(state.dataGeneration == genAfterFirst)
+    #expect(state.todayDate == TestDate.at(2026, 5, 22))
+}
