@@ -410,6 +410,33 @@ import SwiftData
 }
 
 @MainActor
+@Test func parseBacklogDigestThresholdValidatesTypedInput() throws {
+    let range = AppState.backlogDigestThresholdRange
+    // The range must accommodate large, directly-typed numbers — the reason the
+    // field is typeable instead of stepper-only.
+    #expect(range.lowerBound == 1)
+    #expect(range.upperBound >= 365)
+
+    // Whole numbers inside the range parse to themselves (whitespace tolerated).
+    #expect(AppState.parseBacklogDigestThreshold("1") == 1)
+    #expect(AppState.parseBacklogDigestThreshold("120") == 120)
+    #expect(AppState.parseBacklogDigestThreshold(String(range.upperBound)) == range.upperBound)
+    #expect(AppState.parseBacklogDigestThreshold("  14 ") == 14)
+
+    // Out-of-range values are rejected (nil) rather than silently clamped, so
+    // the field can flag them red and Save can be blocked.
+    #expect(AppState.parseBacklogDigestThreshold("0") == nil)
+    #expect(AppState.parseBacklogDigestThreshold("-5") == nil)
+    #expect(AppState.parseBacklogDigestThreshold(String(range.upperBound + 1)) == nil)
+
+    // Non-integer input is rejected.
+    #expect(AppState.parseBacklogDigestThreshold("") == nil)
+    #expect(AppState.parseBacklogDigestThreshold("abc") == nil)
+    #expect(AppState.parseBacklogDigestThreshold("12.5") == nil)
+    #expect(AppState.parseBacklogDigestThreshold("7 days") == nil)
+}
+
+@MainActor
 @Test func scheduleReminderInputsReflectEntries() throws {
     let context = try InMemoryStore.makeContext()
     let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
