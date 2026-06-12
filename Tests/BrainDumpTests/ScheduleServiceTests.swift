@@ -283,6 +283,30 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
 }
 
 @MainActor
+@Test func rescheduleClearsReminderThatNoLongerFitsTheDay() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    // 9:00 with a 1-hour lead is fine (08:00 is within the day).
+    let entry = try scheduleService.schedule(
+        item, on: day, startMinute: 9 * 60, durationMinutes: 60, reminderOffsetMinutes: 60)
+    #expect(entry.reminderOffsetMinutes == 60)
+
+    // Move it to 00:30 — a 1-hour lead would fall on the previous day, so it's cleared.
+    try scheduleService.reschedule(entry, startMinute: 30, durationMinutes: 60)
+    #expect(entry.reminderOffsetMinutes == nil)
+}
+
+@MainActor
+@Test func rescheduleKeepsReminderThatStillFits() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(
+        item, on: day, startMinute: 9 * 60, durationMinutes: 60, reminderOffsetMinutes: 30)
+    try scheduleService.reschedule(entry, startMinute: 8 * 60, durationMinutes: 60)
+    #expect(entry.reminderOffsetMinutes == 30)
+}
+
+@MainActor
 @Test func setReminderOffsetUpdatesEntry() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)

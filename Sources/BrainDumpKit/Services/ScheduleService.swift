@@ -60,6 +60,11 @@ public final class ScheduleService {
         }
         entry.startMinute = startMinute
         entry.durationMinutes = durationMinutes
+        // Drop a reminder that can no longer fire within the day after the move
+        // (e.g. a 1-hour lead on a block pushed to 00:30) so no stale offset lingers.
+        if !ReminderOffset.isValid(entry.reminderOffsetMinutes, startMinute: startMinute) {
+            entry.reminderOffsetMinutes = nil
+        }
         try? context.save()
     }
 
