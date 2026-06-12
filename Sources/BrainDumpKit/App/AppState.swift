@@ -100,6 +100,31 @@ public final class AppState {
         selectedDate = todayDate
     }
 
+    /// Re-reads the wall clock and, if the local day has advanced since
+    /// `todayDate` was last computed, rolls the app forward to the new day:
+    /// updates `todayDate`, re-runs rollover so the now-past day's uncompleted
+    /// items move into the new day's brain dump, follows the selection forward
+    /// when the user was viewing "today", and bumps `dataGeneration` so the day
+    /// subtree rebuilds against the re-parented models (same mechanism as
+    /// `clearAllData`). Returns true iff the day changed.
+    ///
+    /// Idempotent: repeated calls within the same local day are a cheap no-op,
+    /// so it is safe to drive from a periodic timer, the `NSCalendarDayChanged`
+    /// notification, and app-activation events all at once.
+    @discardableResult
+    public func refreshCurrentDate() -> Bool {
+        let newToday = now().startOfLocalDay()
+        guard newToday != todayDate else { return false }
+        let wasViewingToday = selectedDate == todayDate
+        todayDate = newToday
+        dayService.rollover(now: newToday)
+        if wasViewingToday {
+            selectedDate = newToday
+        }
+        dataGeneration += 1
+        return true
+    }
+
     public func toggleSidebar() {
         isSidebarVisible.toggle()
     }
