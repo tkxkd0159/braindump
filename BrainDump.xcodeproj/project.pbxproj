@@ -228,7 +228,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jsl.braindump;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jsl.braindump.debug;
 				PRODUCT_NAME = BrainDump;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
