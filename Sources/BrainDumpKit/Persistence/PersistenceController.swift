@@ -27,32 +27,21 @@ public enum StoreRecovery: Equatable, Sendable {
     }
 }
 
-/// Version 1 of the on-disk schema.
-public enum BrainDumpSchemaV1: VersionedSchema {
-    public static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }
-    public static var models: [any PersistentModel.Type] {
-        [Day.self, TaskItem.self, ScheduleEntry.self]
-    }
-}
-
-/// Version 2 adds `ScheduleEntry.reminderOffsetMinutes` (optional). Both
-/// versions reference the live model classes deliberately: SwiftData derives
-/// the entity name from the class name, so a frozen/renamed snapshot would read
-/// as a *different* entity and lose data rather than migrate. The additive
-/// optional column is handled by a lightweight stage on open.
+/// Current schema version. Used to stamp the store so future migration plans
+/// have a reliable starting version to migrate from.
+///
+/// NOTE: Schema versioning via `SchemaMigrationPlan` requires each
+/// `VersionedSchema` to contain a *historical snapshot* of the model classes
+/// (typically as nested @Model types), NOT the live classes. Using the same
+/// live classes for all versions makes every version identical to CoreData,
+/// which throws an ObjC NSException (uncatchable by Swift try/catch) when it
+/// tries to build a migration mapping. For purely additive optional changes,
+/// SwiftData's built-in lightweight auto-migration handles upgrades without a
+/// formal plan — which is what this project uses.
 public enum BrainDumpSchemaV2: VersionedSchema {
     public static var versionIdentifier: Schema.Version { Schema.Version(2, 0, 0) }
     public static var models: [any PersistentModel.Type] {
         [Day.self, TaskItem.self, ScheduleEntry.self]
-    }
-}
-
-public enum BrainDumpMigrationPlan: SchemaMigrationPlan {
-    public static var schemas: [any VersionedSchema.Type] {
-        [BrainDumpSchemaV1.self, BrainDumpSchemaV2.self]
-    }
-    public static var stages: [MigrationStage] {
-        [.lightweight(fromVersion: BrainDumpSchemaV1.self, toVersion: BrainDumpSchemaV2.self)]
     }
 }
 
@@ -90,14 +79,12 @@ public enum PersistenceController {
         let config = ModelConfiguration(schema: schema, url: storeURL)
 
         do {
-            let container = try ModelContainer(
-                for: schema, migrationPlan: BrainDumpMigrationPlan.self, configurations: config)
+            let container = try ModelContainer(for: schema, configurations: config)
             return (container, .normal)
         } catch {
             let movedAsideTo = moveAside(storeURL)
             do {
-                let container = try ModelContainer(
-                    for: schema, migrationPlan: BrainDumpMigrationPlan.self, configurations: config)
+                let container = try ModelContainer(for: schema, configurations: config)
                 return (container, .recoveredFromCorruption(movedAsideTo: movedAsideTo))
             } catch {
                 // Last resort: in-memory with a valid schema is effectively
