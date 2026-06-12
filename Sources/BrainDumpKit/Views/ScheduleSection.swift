@@ -8,19 +8,24 @@ public struct ScheduleSection: View {
     let dayStartHour: Int
     let dayEndHour: Int
     let openDetail: ((TaskDetailFocus) -> Void)?
+    /// Called after any in-place schedule mutation (add / complete / remove) so
+    /// the owner can re-arm reminders.
+    let onScheduleChanged: () -> Void
 
     public init(
         day: Day,
         isReadOnly: Bool,
         dayStartHour: Int = 5,
         dayEndHour: Int = 22,
-        openDetail: ((TaskDetailFocus) -> Void)? = nil
+        openDetail: ((TaskDetailFocus) -> Void)? = nil,
+        onScheduleChanged: @escaping () -> Void = {}
     ) {
         self.day = day
         self.isReadOnly = isReadOnly
         self.dayStartHour = dayStartHour
         self.dayEndHour = dayEndHour
         self.openDetail = openDetail
+        self.onScheduleChanged = onScheduleChanged
     }
 
     private static let slotHeight: CGFloat = 50
@@ -68,8 +73,8 @@ public struct ScheduleSection: View {
                     initialDurationMinutes: 60,
                     dayStartHour: dayStartHour,
                     dayEndHour: dayEndHour,
-                    onConfirm: { startMinute, durationMinutes, colorIndex in
-                        confirmSchedule(itemID: drop.itemID, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex)
+                    onConfirm: { startMinute, durationMinutes, colorIndex, reminderOffset in
+                        confirmSchedule(itemID: drop.itemID, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex, reminderOffsetMinutes: reminderOffset)
                     },
                     onCancel: { pending = nil }
                 )
@@ -114,8 +119,14 @@ public struct ScheduleSection: View {
                     ScheduleBlockView(
                         entry: entry,
                         isReadOnly: isReadOnly,
-                        onToggleComplete: { scheduleService.setCompleted(entryRef, !entryRef.isCompleted) },
-                        onRemove: { scheduleService.unschedule(entryRef) },
+                        onToggleComplete: {
+                            scheduleService.setCompleted(entryRef, !entryRef.isCompleted)
+                            onScheduleChanged()
+                        },
+                        onRemove: {
+                            scheduleService.unschedule(entryRef)
+                            onScheduleChanged()
+                        },
                         onEdit: isReadOnly ? nil : {
                             if let item = entryRef.item {
                                 openDetail?(TaskDetailFocus(item: item, entry: entryRef, startInEditMode: true))
@@ -214,15 +225,16 @@ public struct ScheduleSection: View {
         }
     }
 
-    private func confirmSchedule(itemID: UUID, startMinute: Int, durationMinutes: Int, colorIndex: Int) {
+    private func confirmSchedule(itemID: UUID, startMinute: Int, durationMinutes: Int, colorIndex: Int, reminderOffsetMinutes: Int?) {
         defer { pending = nil }
         guard let item = day.items.first(where: { $0.id == itemID }) else {
             errorText = "Item not on this day"
             return
         }
         do {
-            _ = try scheduleService.schedule(item, on: day, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex)
+            _ = try scheduleService.schedule(item, on: day, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex, reminderOffsetMinutes: reminderOffsetMinutes)
             errorText = nil
+            onScheduleChanged()
         } catch TodoError.scheduleConflict {
             errorText = "Conflicts with another block"
         } catch TodoError.scheduleOutOfRange {

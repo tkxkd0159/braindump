@@ -31,7 +31,9 @@ struct BrainDumpApp: App {
 
     var body: some Scene {
         WindowGroup("Brain Dump") {
-            AppShell(storeRecovery: storeRecovery, updateModel: updater.model)
+            AppShell(
+                storeRecovery: storeRecovery, updateModel: updater.model,
+                notifier: SystemUserNotifying())
                 .frame(minWidth: WindowSizing.minWidth, minHeight: WindowSizing.minHeight)
                 .background(WindowConfigurator())
                 .tint(Theme.Palette.primary)
