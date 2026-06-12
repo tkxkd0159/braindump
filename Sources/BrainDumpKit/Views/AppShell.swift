@@ -25,8 +25,8 @@ public struct AppShell: View {
     static let canvasMin: CGFloat = 64 + 360 + 24 + 480 + 64
     static let sidebarThreshold: CGFloat = canvasMin + sidebarWidth
 
-    // Top inset shared by the sidebar title and every tab's content, so each
-    // tab's first row lines up with the "Daily Timebox Planner" title.
+    // Top inset shared by the sidebar's first nav item and every tab's content,
+    // so the sidebar navigation lines up with the canvas's date header.
     static let contentTopInset: CGFloat = 28
 
     public init(
@@ -87,6 +87,18 @@ public struct AppShell: View {
                 state = created
             }
         }
+        // Refresh calendar subscriptions once `state` exists, then every 30
+        // minutes while the window is open. The initial refresh paints over the
+        // disk-cached events already shown. Re-runs when state flips nil→set.
+        .task(id: state == nil) {
+            guard let state else { return }
+            await state.calendar.refresh()
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 30 * 60 * 1_000_000_000)
+                if Task.isCancelled { break }
+                await state.calendar.refresh()
+            }
+        }
         .alert("Data could not be opened", isPresented: $showRecoveryNotice) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -102,26 +114,22 @@ private struct Sidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Daily Timebox Planner")
-                    .font(Theme.Font.headlineSmall)
-                    .tracking(0.5)
-                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, AppShell.contentTopInset)
-            .padding(.bottom, 40)
-
+            // Order matches `SidebarDestination.allCases`, which backs the
+            // ⌘1/⌘2/⌘3 shortcuts (see `AppState.selectSidebarItem`). Keep in sync.
             VStack(alignment: .leading, spacing: 6) {
                 NavItem(
                     icon: "calendar.day.timeline.left", label: "Today", destination: .today,
                     state: state)
+                    .help("Today (⌘1)")
                 NavItem(
                     icon: "list.bullet.clipboard", label: "Tasks", destination: .tasks, state: state
                 )
+                .help("Tasks (⌘2)")
                 NavItem(icon: "tray.full", label: "Backlog", destination: .backlog, state: state)
+                    .help("Backlog (⌘3)")
             }
             .padding(.horizontal, 16)
+            .padding(.top, AppShell.contentTopInset)
 
             Spacer()
 
@@ -136,7 +144,7 @@ private struct Sidebar: View {
                             .font(.system(size: 16, weight: .regular))
                             .frame(width: 22)
                         Text("Settings")
-                            .font(Theme.Font.labelMd)
+                            .font(Theme.Font.navLabel)
                             .tracking(0.7)
                         Spacer(minLength: 0)
                     }
@@ -188,7 +196,7 @@ private struct NavItem: View {
                     .font(.system(size: 16, weight: isActive ? .semibold : .regular))
                     .frame(width: 22)
                 Text(label)
-                    .font(Theme.Font.labelMd)
+                    .font(Theme.Font.navLabel)
                     .tracking(0.7)
                 Spacer(minLength: 0)
             }
@@ -241,6 +249,10 @@ private struct MainCanvas: View {
             SidebarToggle(state: state)
                 .padding(.leading, 16)
         }
+        // ⌘1/⌘2/⌘3 destination shortcuts. Hosted here (always rendered) rather
+        // than in the Sidebar, which is torn out of the hierarchy — taking its
+        // key equivalents with it — when collapsed or hidden.
+        .background { NavigationShortcuts(state: state) }
     }
 
     private var todayLayout: some View {
@@ -283,6 +295,28 @@ private struct SidebarToggle: View {
         .buttonStyle(.plain)
         .help(state.isSidebarVisible ? "Hide Sidebar" : "Show Sidebar")
         .keyboardShortcut("b", modifiers: [.command])
+    }
+}
+
+/// Invisible key-equivalent buttons backing ⌘1/⌘2/⌘3 (Today / Tasks / Backlog).
+/// Indices map through `AppState.selectSidebarItem(at:)`. Zero-size and fully
+/// transparent, so they register window shortcuts without affecting layout or
+/// intercepting clicks; `accessibilityHidden` keeps them out of VoiceOver.
+private struct NavigationShortcuts: View {
+    @Bindable var state: AppState
+
+    var body: some View {
+        ZStack {
+            Button("Today") { state.selectSidebarItem(at: 0) }
+                .keyboardShortcut("1", modifiers: [.command])
+            Button("Tasks") { state.selectSidebarItem(at: 1) }
+                .keyboardShortcut("2", modifiers: [.command])
+            Button("Backlog") { state.selectSidebarItem(at: 2) }
+                .keyboardShortcut("3", modifiers: [.command])
+        }
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
     }
 }
 

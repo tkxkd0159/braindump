@@ -54,7 +54,7 @@ Today is a full-window worksheet: a date header with the day's quote on top, the
 #### Brain Dump
 
 - An **uncapped** capture list for the day — minor tasks, tangents, thoughts.
-- **Add** with the **+** button or **⌘T** — both open the *New Task* sheet (title, description, tags, and an optional "Add to Schedule" toggle).
+- **Add** with the **+** button or **⌘N** — both open the *New Task* sheet (title, description, tags, and an optional "Add to Schedule" toggle).
 - Each row shows the title, **tag chips**, and **expandable notes** (click to expand/collapse).
 - Hover a row for inline **delete** (✕) and **edit** (pencil) actions.
 - **Context menu:** *Schedule*, *Move to Priority*, *Move to Backlog*.
@@ -99,7 +99,7 @@ The **Tasks** screen lists every non-backlog task across all days, newest first:
 
 A parking lot for tasks that aren't tied to a day:
 
-- **Add** with the **Add Task** button or **⌘P**.
+- **Add** with the **Add Task** button or **⌘N**.
 - Each item shows title, notes preview, and tags.
 - **Move to today** promotes an item into today's brain dump; the **✕** deletes it.
 - Click an item to view or edit it.
@@ -134,6 +134,9 @@ Custom shortcuts defined in the app:
 
 | Shortcut | Action                                           | Where                              |
 | -------- | ------------------------------------------------ | ---------------------------------- |
+| **⌘1**   | Go to Today                                      | Anywhere                           |
+| **⌘2**   | Go to Tasks                                      | Anywhere                           |
+| **⌘3**   | Go to Backlog                                    | Anywhere                           |
 | **⌘B**   | Show / hide the sidebar                          | Anywhere                           |
 | **⌘N**   | New brain-dump task (opens the *New Task* sheet) | Today, on editable (non-past) days |
 | **⌘N**   | New backlog task                                 | Backlog screen                     |

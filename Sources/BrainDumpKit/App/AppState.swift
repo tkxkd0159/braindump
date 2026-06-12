@@ -23,6 +23,10 @@ public final class AppState {
 
     public var isSidebarVisible: Bool = true
 
+    /// External-calendar subscriptions and their fetched events. Owned here so
+    /// the schedule grid (via `DayView`) can render events and block their slots.
+    public let calendar: CalendarService
+
     /// Bumped whenever stored content is wiped. Folded into `DayView`'s SwiftUI
     /// identity so the day subtree is rebuilt against fresh models instead of
     /// re-rendered against just-deleted ones (the Clear Data crash).
@@ -65,12 +69,19 @@ public final class AppState {
         context: ModelContext,
         now: @escaping () -> Date = { Date() },
         wiseSaying: WiseSaying = WiseSayings.random(),
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        calendarService: CalendarService? = nil
     ) {
         self.context = context
         self.now = now
         self.dayService = DayService(context: context)
         self.defaults = defaults
+        self.calendar = calendarService ?? CalendarService(
+            store: CalendarFeedStore(defaults: defaults),
+            fetcher: URLSessionICalFeedFetcher(),
+            cache: CalendarCache(),
+            now: now
+        )
         let today = now().startOfLocalDay()
         self.todayDate = today
         self.selectedDate = today
@@ -127,6 +138,16 @@ public final class AppState {
 
     public func toggleSidebar() {
         isSidebarVisible.toggle()
+    }
+
+    /// Selects the sidebar destination at `index` in the sidebar's visual order
+    /// (0 = Today, 1 = Tasks, 2 = Backlog), backing the ⌘1/⌘2/⌘3 shortcuts. The
+    /// order is `SidebarDestination.allCases`, which the sidebar `NavItem`s
+    /// render in the same sequence. Out-of-range indices are ignored.
+    public func selectSidebarItem(at index: Int) {
+        let order = SidebarDestination.allCases
+        guard order.indices.contains(index) else { return }
+        selectedDestination = order[index]
     }
 
     /// Update the day-window bounds. Returns false if invalid (caller can show an

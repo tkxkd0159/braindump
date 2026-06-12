@@ -237,6 +237,57 @@ import SwiftData
     #expect(state.isSidebarVisible)
 }
 
+// MARK: - Sidebar navigation shortcuts (⌘1/⌘2/⌘3)
+
+@MainActor
+@Test func selectSidebarItemMapsIndexToDestination() throws {
+    let context = try InMemoryStore.makeContext()
+    let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) })
+
+    state.selectSidebarItem(at: 0)
+    #expect(state.selectedDestination == .today)
+    state.selectSidebarItem(at: 1)
+    #expect(state.selectedDestination == .tasks)
+    state.selectSidebarItem(at: 2)
+    #expect(state.selectedDestination == .backlog)
+}
+
+@MainActor
+@Test func selectSidebarItemIgnoresOutOfRangeIndex() throws {
+    let context = try InMemoryStore.makeContext()
+    let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) })
+
+    state.selectSidebarItem(at: 1)  // .tasks
+    state.selectSidebarItem(at: 3)  // past the last item → no change
+    #expect(state.selectedDestination == .tasks)
+    state.selectSidebarItem(at: -1)  // before the first item → no change
+    #expect(state.selectedDestination == .tasks)
+}
+
+/// ⌘1/⌘2/⌘3 and the sidebar's top-to-bottom `NavItem`s both depend on this
+/// exact order; a reorder must break a test loudly. (Guards an existing
+/// invariant the shortcut mapping relies on.)
+@Test func sidebarDestinationOrderBacksNumberShortcuts() {
+    #expect(SidebarDestination.allCases == [.today, .tasks, .backlog])
+}
+
+@MainActor
+@Test func appStateExposesInjectedCalendarService() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "test.appstate.cal.\(UUID().uuidString)")!
+    let store = CalendarFeedStore(defaults: defaults)
+    store.save([CalendarFeed(name: "Work", urlString: "https://x/a.ics")])
+    let calendar = CalendarService(
+        store: store,
+        fetcher: URLSessionICalFeedFetcher(),
+        cache: CalendarCache(url: URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("as-\(UUID().uuidString).json")),
+        now: { TestDate.at(2026, 5, 22) })
+    let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) },
+                         defaults: defaults, calendarService: calendar)
+    #expect(state.calendar.feeds.map(\.name) == ["Work"])
+}
+
 // MARK: - Automatic date refresh (clock crosses into a new local day)
 
 @MainActor

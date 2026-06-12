@@ -7,6 +7,7 @@ public struct ScheduleSection: View {
     let isReadOnly: Bool
     let dayStartHour: Int
     let dayEndHour: Int
+    let calendarEvents: [CalendarEvent]
     let openDetail: ((TaskDetailFocus) -> Void)?
 
     public init(
@@ -14,13 +15,25 @@ public struct ScheduleSection: View {
         isReadOnly: Bool,
         dayStartHour: Int = 5,
         dayEndHour: Int = 22,
+        calendarEvents: [CalendarEvent] = [],
         openDetail: ((TaskDetailFocus) -> Void)? = nil
     ) {
         self.day = day
         self.isReadOnly = isReadOnly
         self.dayStartHour = dayStartHour
         self.dayEndHour = dayEndHour
+        self.calendarEvents = calendarEvents
         self.openDetail = openDetail
+    }
+
+    /// Timed calendar events that actually map onto this day's grid.
+    private var timedEvents: [CalendarEvent] {
+        calendarEvents.filter { !$0.isAllDay && $0.minuteRange(on: day.date) != nil }
+    }
+    private var allDayEvents: [CalendarEvent] { calendarEvents.filter(\.isAllDay) }
+    /// Minutes-since-midnight ranges occupied by calendar events on this day.
+    private var calendarBusyRanges: [Range<Int>] {
+        timedEvents.compactMap { $0.minuteRange(on: day.date) }
     }
 
     private static let slotHeight: CGFloat = 50
@@ -47,6 +60,10 @@ public struct ScheduleSection: View {
         if day.modelContext != nil {
             VStack(alignment: .leading, spacing: 0) {
                 header
+                if !allDayEvents.isEmpty {
+                    AllDayEventBar(events: allDayEvents)
+                        .padding(.bottom, 12)
+                }
                 // Google-Calendar-style day view: the hour grid scrolls inside
                 // the card while the card itself fills the column height, so it
                 // stays usable as the window is resized.
@@ -133,6 +150,19 @@ public struct ScheduleSection: View {
                     .offset(y: CGFloat(visibleStart - dayStartMinute) / 60.0 * Self.hourHeight + 1)
                 }
             }
+            ForEach(timedEvents) { event in
+                if let range = event.minuteRange(on: day.date),
+                   range.upperBound > dayStartMinute, range.lowerBound < dayEndMinute {
+                    let visibleStart = max(range.lowerBound, dayStartMinute)
+                    let visibleEnd = min(range.upperBound, dayEndMinute)
+                    let visibleMinutes = visibleEnd - visibleStart
+                    CalendarEventBlockView(event: event)
+                        .frame(height: CGFloat(visibleMinutes) / 60.0 * Self.hourHeight)
+                        .padding(.leading, Self.timeLabelWidth)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .offset(y: CGFloat(visibleStart - dayStartMinute) / 60.0 * Self.hourHeight + 1)
+                }
+            }
         }
     }
 
@@ -153,15 +183,19 @@ public struct ScheduleSection: View {
     }
 
     private func isOccupied(minute: Int) -> Bool {
-        day.schedule.contains { entry in
-            minute >= entry.startMinute && minute < entry.endMinute
+        if day.schedule.contains(where: { minute >= $0.startMinute && minute < $0.endMinute }) {
+            return true
         }
+        return calendarBusyRanges.contains { $0.contains(minute) }
     }
 
     private func slotRow(hour: Int, isTopOfHour: Bool) -> some View {
         HStack(alignment: .top, spacing: 0) {
+            // Align the time label with the grid line at the TOP of its slot —
+            // the line that marks where a block at this time begins. Previously a
+            // .padding(.top, 8) pushed each label 8pt below that line, so every
+            // time read as lower than the block it labels.
             timeLabel(hour: hour, isTopOfHour: isTopOfHour)
-                .padding(.top, 8)
                 .padding(.trailing, 16)
                 .frame(width: Self.timeLabelWidth, height: Self.slotHeight, alignment: .topTrailing)
                 .overlay(alignment: .trailing) {
@@ -221,7 +255,7 @@ public struct ScheduleSection: View {
             return
         }
         do {
-            _ = try scheduleService.schedule(item, on: day, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex)
+            _ = try scheduleService.schedule(item, on: day, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex, additionalBusyRanges: calendarBusyRanges)
             errorText = nil
         } catch TodoError.scheduleConflict {
             errorText = "Conflicts with another block"

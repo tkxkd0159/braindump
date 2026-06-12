@@ -10,7 +10,25 @@ struct PersistenceControllerTests {
     func defaultStoreURLIsNamespaced() {
         let url = PersistenceController.defaultStoreURL()
         #expect(url.lastPathComponent == "BrainDump.store")
-        #expect(url.deletingLastPathComponent().lastPathComponent == "BrainDump")
+        // Lives under the build-specific app directory (debug vs release).
+        #expect(url.deletingLastPathComponent().lastPathComponent == PersistenceController.appDirectoryName)
+    }
+
+    @Test
+    func appDirectoryNameSeparatesDebugFromRelease() {
+        #expect(PersistenceController.appDirectoryName(debug: false) == "BrainDump")
+        #expect(PersistenceController.appDirectoryName(debug: true) == "BrainDump-debug")
+    }
+
+    @Test
+    func resolvedAppDirectoryMatchesBuildConfiguration() {
+        // A debug build (how `swift test` compiles) must resolve to the
+        // separate folder so it can't migrate/clobber the Release app's data.
+        #if DEBUG
+        #expect(PersistenceController.appDirectoryName == "BrainDump-debug")
+        #else
+        #expect(PersistenceController.appDirectoryName == "BrainDump")
+        #endif
     }
 
     @Test

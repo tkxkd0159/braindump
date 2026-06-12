@@ -17,10 +17,13 @@ Requires macOS 14+ and Xcode (full Xcode, not just Command Line Tools — see [T
 **Day-to-day development is in Xcode:**
 
 ```bash
-xed BrainDump.xcodeproj           # opens in Xcode; Cmd+R runs + debugs the app
+xed BrainDump.xcodeproj           # opens the APP project; Cmd+R runs + debugs the app
 ```
 
-**Library + tests (SwiftPM):**
+> **To run the app you must open `BrainDump.xcodeproj`** (the app target) and select the **BrainDump** scheme — not `BrainDumpKit`.
+> Opening `Package.swift` or the repo folder in Xcode loads the **SwiftPM package**, which declares only the `BrainDumpKit` library + tests and **has no app target** — so Build succeeds but Run launches nothing ("doesn't run any application"). When working in a git worktree, open *that worktree's* `BrainDump.xcodeproj`, not the main checkout's.
+
+**Library + tests (SwiftPM) — `Package.swift` is library + tests only, no runnable app:**
 
 ```bash
 swift build                       # build BrainDumpKit
@@ -80,7 +83,7 @@ Tests/
 
 **Drag payload.** `TaskItemDragPayload` is a tiny `Codable` + `Transferable` wrapper around the item's UUID. Brain-dump and top-3 rows are `.draggable(...)`. Empty schedule slots are `.dropDestination(for: TaskItemDragPayload.self)`. On drop, `ScheduleSection` opens a `TimeBlockSheet` (Reminders-style start/end `DatePicker`s, 15-min snap); the actual `schedule(...)` call happens after the sheet confirms.
 
-**Never crashes on launch.** `PersistenceController.makeContainer()` opens the versioned store (`BrainDumpSchemaV1` via `BrainDumpMigrationPlan`); on failure it moves the unreadable store and its `-wal`/`-shm` sidecars aside (`BrainDump.store.corrupt-<unixstamp>`, **preserved, not deleted**) and retries fresh; last resort is an in-memory container. The outcome is a `StoreRecovery` value surfaced once as an alert in `AppShell`. Store path: `~/Library/Application Support/BrainDump/BrainDump.store`. Schema changes go through a new `MigrationStage` in `BrainDumpMigrationPlan` — never an ad-hoc model edit.
+**Never crashes on launch.** `PersistenceController.makeContainer()` opens the versioned store (`BrainDumpSchemaV1` via `BrainDumpMigrationPlan`); on failure it moves the unreadable store and its `-wal`/`-shm` sidecars aside (`BrainDump.store.corrupt-<unixstamp>`, **preserved, not deleted**) and retries fresh; last resort is an in-memory container. The outcome is a `StoreRecovery` value surfaced once as an alert in `AppShell`. Store path: `~/Library/Application Support/<dir>/BrainDump.store`, where `<dir>` is `PersistenceController.appDirectoryName` — `BrainDump` for Release and `BrainDump-debug` for Debug builds, so a dev build never migrates or clobbers the installed app's real data (the calendar cache shares the same directory). Schema changes go through a new `MigrationStage` in `BrainDumpMigrationPlan` — never an ad-hoc model edit.
 
 **Clear Data / restore rebuild.** `clearAllData` and `importBackup` wipe content but **preserve preferences** (day bounds), snap navigation to Today, and bump `AppState.dataGeneration`. That counter is folded into `DayView`'s identity (`.id(state.dataGeneration)`) so the subtree rebuilds against fresh models instead of re-rendering against just-deleted ones — the fix for the SwiftData Clear-Data crash. Its regression test (`ClearDataCrashTests`) uses the on-disk `FileBackedStore`; `InMemoryStore` doesn't reproduce the deletion timing.
 
