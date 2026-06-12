@@ -1,6 +1,6 @@
 import Foundation
-import SwiftData
 import Observation
+import SwiftData
 
 public enum SidebarDestination: String, CaseIterable, Hashable {
     case today
@@ -40,6 +40,12 @@ public final class AppState {
     private static let digestHourKey = "BrainDump.backlogDigestHour"
     private static let digestMinuteKey = "BrainDump.backlogDigestMinute"
 
+    /// Valid range for the backlog-digest age threshold, in days. The lower
+    /// bound is 1 (a 0-day digest would flag every backlog item); the upper
+    /// bound is generous so a directly-typed number isn't surprisingly
+    /// truncated. Both the typeable field and its stepper clamp into this.
+    public static let backlogDigestThresholdRange = 1...999
+
     public var dayStartHour: Int {
         didSet { defaults.set(dayStartHour, forKey: Self.dayStartHourKey) }
     }
@@ -50,16 +56,28 @@ public final class AppState {
     /// Backlog-age digest preferences (persisted, like the day-window hours).
     /// Each setter re-arms the digest so a change takes effect immediately.
     public var backlogDigestEnabled: Bool {
-        didSet { defaults.set(backlogDigestEnabled, forKey: Self.digestEnabledKey); syncBacklogDigest() }
+        didSet {
+            defaults.set(backlogDigestEnabled, forKey: Self.digestEnabledKey)
+            syncBacklogDigest()
+        }
     }
     public var backlogDigestThresholdDays: Int {
-        didSet { defaults.set(backlogDigestThresholdDays, forKey: Self.digestThresholdKey); syncBacklogDigest() }
+        didSet {
+            defaults.set(backlogDigestThresholdDays, forKey: Self.digestThresholdKey)
+            syncBacklogDigest()
+        }
     }
     public var backlogDigestHour: Int {
-        didSet { defaults.set(backlogDigestHour, forKey: Self.digestHourKey); syncBacklogDigest() }
+        didSet {
+            defaults.set(backlogDigestHour, forKey: Self.digestHourKey)
+            syncBacklogDigest()
+        }
     }
     public var backlogDigestMinute: Int {
-        didSet { defaults.set(backlogDigestMinute, forKey: Self.digestMinuteKey); syncBacklogDigest() }
+        didSet {
+            defaults.set(backlogDigestMinute, forKey: Self.digestMinuteKey)
+            syncBacklogDigest()
+        }
     }
 
     /// True if the system has denied notification permission — Settings shows a
@@ -102,12 +120,14 @@ public final class AppState {
         self.dayService = DayService(context: context)
         self.notificationCoordinator = NotificationCoordinator(notifier: notifier)
         self.defaults = defaults
-        self.calendar = calendarService ?? CalendarService(
-            store: CalendarFeedStore(defaults: defaults),
-            fetcher: URLSessionICalFeedFetcher(),
-            cache: CalendarCache(),
-            now: now
-        )
+        self.calendar =
+            calendarService
+            ?? CalendarService(
+                store: CalendarFeedStore(defaults: defaults),
+                fetcher: URLSessionICalFeedFetcher(),
+                cache: CalendarCache(),
+                now: now
+            )
         let today = now().startOfLocalDay()
         self.todayDate = today
         self.selectedDate = today
@@ -118,7 +138,8 @@ public final class AppState {
         self.dayEndHour = storedEnd ?? 22
         // Property observers don't fire during init, so these don't trigger a sync.
         self.backlogDigestEnabled = defaults.object(forKey: Self.digestEnabledKey) as? Bool ?? false
-        self.backlogDigestThresholdDays = defaults.object(forKey: Self.digestThresholdKey) as? Int ?? 7
+        self.backlogDigestThresholdDays =
+            defaults.object(forKey: Self.digestThresholdKey) as? Int ?? 7
         self.backlogDigestHour = defaults.object(forKey: Self.digestHourKey) as? Int ?? 9
         self.backlogDigestMinute = defaults.object(forKey: Self.digestMinuteKey) as? Int ?? 0
         self.dayService.rollover(now: today)
@@ -133,7 +154,8 @@ public final class AppState {
     }
 
     public func goToNextDay() {
-        let next = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate)!.startOfLocalDay()
+        let next = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate)!
+            .startOfLocalDay()
         if next > todayDate { return }
         selectedDate = next
     }
@@ -245,11 +267,24 @@ public final class AppState {
     @discardableResult
     public func setDayBounds(startHour: Int, endHour: Int) -> Bool {
         guard startHour >= 0, startHour < 24,
-              endHour > 0, endHour <= 24,
-              endHour - startHour >= 4 else { return false }
+            endHour > 0, endHour <= 24,
+            endHour - startHour >= 4
+        else { return false }
         dayStartHour = startHour
         dayEndHour = endHour
         return true
+    }
+
+    /// Parse raw text from the typeable threshold field into a valid day count.
+    /// Returns the integer iff the text is a whole number inside
+    /// `backlogDigestThresholdRange`; otherwise `nil`, so the UI can flag the
+    /// field red and block Save rather than silently clamping out-of-range input.
+    public static func parseBacklogDigestThreshold(_ raw: String) -> Int? {
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        guard let value = Int(trimmed), backlogDigestThresholdRange.contains(value) else {
+            return nil
+        }
+        return value
     }
 
     /// Wipes all user data (days, tasks, schedule entries, backlog) and snaps

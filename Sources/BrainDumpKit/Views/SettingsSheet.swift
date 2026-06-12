@@ -14,6 +14,20 @@ public struct SettingsSheet: View {
     @State private var showClearConfirmation: Bool = false
     @State private var showImportConfirmation: Bool = false
     @State private var backupError: String?
+    /// Raw text of the backlog-digest threshold field. Kept separate from the
+    /// persisted `Int` so the user can type freely (including a momentarily
+    /// out-of-range or empty value) — it's validated before persisting, and the
+    /// field is flagged red / Save is blocked while it's invalid.
+    @State private var thresholdText: String
+    /// Focus of the threshold text field (`@FocusState` is reliable for text
+    /// fields) and of the time picker (driven by the AppKit wrapper, since
+    /// `@FocusState` doesn't fire for `DatePicker` on macOS). Each highlights its
+    /// field box on click.
+    @FocusState private var dayFieldFocused: Bool
+    @State private var timeFieldFocused: Bool = false
+
+    /// Shared width for the two digest fields so they're the same size.
+    private let digestFieldWidth: CGFloat = 80
 
     public init(
         state: AppState,
@@ -27,6 +41,7 @@ public struct SettingsSheet: View {
         _section = State(initialValue: initialSection)
         _startHour = State(initialValue: state.dayStartHour)
         _endHour = State(initialValue: state.dayEndHour)
+        _thresholdText = State(initialValue: String(state.backlogDigestThresholdDays))
     }
 
     public var body: some View {
@@ -213,13 +228,17 @@ public struct SettingsSheet: View {
                 dismiss()
             }
         } message: {
-            Text("This permanently deletes every task, schedule entry, and backlog item across all days. This cannot be undone.")
+            Text(
+                "This permanently deletes every task, schedule entry, and backlog item across all days. This cannot be undone."
+            )
         }
         .alert("Import backup?", isPresented: $showImportConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Import", role: .destructive) { importBackup() }
         } message: {
-            Text("Importing replaces every task, schedule entry, and backlog item with the backup's contents. This cannot be undone.")
+            Text(
+                "Importing replaces every task, schedule entry, and backlog item with the backup's contents. This cannot be undone."
+            )
         }
     }
 
@@ -268,9 +287,11 @@ public struct SettingsSheet: View {
                 .font(Theme.Font.sectionLabelHeavy)
                 .tracking(1.4)
                 .foregroundStyle(Theme.Palette.onSurface)
-            Text("Remove all tasks, schedule entries, and backlog items. Settings such as day time range are preserved.")
-                .font(Theme.Font.bodyMd)
-                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            Text(
+                "Remove all tasks, schedule entries, and backlog items. Settings such as day time range are preserved."
+            )
+            .font(Theme.Font.bodyMd)
+            .foregroundStyle(Theme.Palette.onSurfaceVariant)
             Button(action: { showClearConfirmation = true }) {
                 Text("Clear Data")
                     .font(Theme.Font.labelMd)
@@ -292,9 +313,11 @@ public struct SettingsSheet: View {
                         .font(Theme.Font.sectionLabelHeavy)
                         .tracking(1.4)
                         .foregroundStyle(Theme.Palette.onSurface)
-                    Text("Once a day, get a notification counting how many backlog tasks are older than your threshold. Scheduled time blocks can also carry their own reminder, set when you add the block.")
-                        .font(Theme.Font.bodyMd)
-                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
+                    Text(
+                        "Once a day, get a notification counting how many backlog tasks are older than your threshold."
+                    )
+                    .font(Theme.Font.bodyMd)
+                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
                 }
 
                 Toggle(isOn: $state.backlogDigestEnabled) {
@@ -305,31 +328,47 @@ public struct SettingsSheet: View {
                 .toggleStyle(.switch)
 
                 if state.backlogDigestEnabled {
-                    HStack(alignment: .top, spacing: 28) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Older than")
-                                .font(Theme.Font.labelMd)
-                                .foregroundStyle(Theme.Palette.onSurface)
-                            Stepper(value: $state.backlogDigestThresholdDays, in: 1...60) {
-                                Text("\(state.backlogDigestThresholdDays) day\(state.backlogDigestThresholdDays == 1 ? "" : "s")")
-                                    .font(Theme.Font.bodyMd)
-                                    .foregroundStyle(Theme.Palette.onSurface)
+                    HStack(alignment: .top, spacing: 32) {
+                        digestField(label: "Older than") {
+                            HStack(spacing: 8) {
+                                DigestFieldBox(
+                                    isFocused: dayFieldFocused, isInvalid: !isThresholdValid
+                                ) {
+                                    TextField("", text: $thresholdText)
+                                        .textFieldStyle(.plain)
+                                        .multilineTextAlignment(.trailing)
+                                        .focused($dayFieldFocused)
+                                        .focusEffectDisabled()
+                                }
+                                .frame(width: digestFieldWidth)
+                                .help(isThresholdValid ? "" : thresholdErrorMessage)
+                                Text("days")
+                                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
                             }
-                            .fixedSize()
                         }
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Notify at")
-                                .font(Theme.Font.labelMd)
-                                .foregroundStyle(Theme.Palette.onSurface)
-                            DatePicker("", selection: digestTimeBinding, displayedComponents: .hourAndMinute)
-                                .labelsHidden()
+                        digestField(label: "Notify at") {
+                            DigestFieldBox(isFocused: timeFieldFocused, isInvalid: false) {
+                                DigestTimeField(
+                                    date: digestTimeBinding,
+                                    onFocusChange: { timeFieldFocused = $0 }
+                                )
+                            }
+                            .frame(width: digestFieldWidth)
                         }
                     }
 
-                    if state.notificationsDenied {
-                        Text("Notifications are turned off for Brain Dump. Turn them on in System Settings \u{203A} Notifications to receive reminders.")
+                    if !isThresholdValid {
+                        Text(thresholdErrorMessage)
                             .font(Theme.Font.caption)
                             .foregroundStyle(Theme.Palette.secondary)
+                    }
+
+                    if state.notificationsDenied {
+                        Text(
+                            "Notifications are turned off for Brain Dump. Turn them on in System Settings \u{203A} Notifications to receive reminders."
+                        )
+                        .font(Theme.Font.caption)
+                        .foregroundStyle(Theme.Palette.secondary)
                     }
                 }
             }
@@ -338,6 +377,42 @@ public struct SettingsSheet: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// The typed threshold parsed into a valid day count, or nil when the field
+    /// holds something out of range / non-numeric.
+    private var parsedThreshold: Int? {
+        AppState.parseBacklogDigestThreshold(thresholdText)
+    }
+
+    private var isThresholdValid: Bool { parsedThreshold != nil }
+
+    /// Save is blocked while the (visible) threshold field is invalid, so the
+    /// sheet can't be committed with an out-of-range value.
+    private var thresholdBlocksSave: Bool {
+        state.backlogDigestEnabled && !isThresholdValid
+    }
+
+    private var thresholdErrorMessage: String {
+        let range = AppState.backlogDigestThresholdRange
+        return "Enter a whole number from \(range.lowerBound) to \(range.upperBound)."
+    }
+
+    /// One labeled control in the backlog-digest row. Both "Older than" and
+    /// "Notify at" go through this so they share an identical label font,
+    /// label→control spacing, and a fixed control-row height — keeping the two
+    /// fields the same size and vertically aligned as a matched pair.
+    @ViewBuilder
+    private func digestField<Control: View>(
+        label: String, @ViewBuilder control: () -> Control
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label)
+                .font(Theme.Font.labelMd)
+                .foregroundStyle(Theme.Palette.onSurface)
+            control()
+                .frame(height: 24, alignment: .leading)
+        }
     }
 
     /// Bridges the stored hour/minute to the `DatePicker`'s `Date` API.
@@ -359,7 +434,9 @@ public struct SettingsSheet: View {
         UpdatesSettingsView(model: updateModel)
     }
 
-    private func hourPicker(label: String, selection: Binding<Int>, range: ClosedRange<Int>) -> some View {
+    private func hourPicker(label: String, selection: Binding<Int>, range: ClosedRange<Int>)
+        -> some View
+    {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
                 .font(Theme.Font.labelMd)
@@ -400,6 +477,8 @@ public struct SettingsSheet: View {
                 .frame(height: 36)
                 .foregroundStyle(Theme.Palette.onPrimary)
                 .background(Theme.Palette.primary)
+                .opacity(thresholdBlocksSave ? 0.4 : 1)
+                .disabled(thresholdBlocksSave)
                 .keyboardShortcut(.defaultAction)
         }
         .padding(.horizontal, 28)
@@ -435,14 +514,111 @@ public struct SettingsSheet: View {
     }
 
     private func save() {
-        if state.setDayBounds(startHour: startHour, endHour: endHour) {
-            dismiss()
-        } else {
+        // The threshold is committed only here (not live), so a momentarily
+        // out-of-range value typed into the field is never persisted — Save is
+        // disabled while it's invalid; this guard is defense-in-depth.
+        guard !thresholdBlocksSave else { return }
+        guard state.setDayBounds(startHour: startHour, endHour: endHour) else {
             error = "Day must span at least 4 hours"
+            return
         }
+        if let value = parsedThreshold {
+            state.backlogDigestThresholdDays = value
+        }
+        dismiss()
     }
 }
 
 public enum SettingsSection {
     case general, calendar, notifications, updates
+}
+
+/// A backlog-digest input field's chrome: a thin bordered box that turns
+/// Primary Navy when focused and Crimson when its value is invalid (invalid
+/// wins). Both digest fields wrap their control in one of these, so they're the
+/// same size with identical styling — and the date picker highlights on click
+/// just like the text field. Its own view so the focused/invalid appearance can
+/// be snapshot-tested (focus can't be engaged in an offscreen render).
+struct DigestFieldBox<Content: View>: View {
+    var isFocused: Bool
+    var isInvalid: Bool
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, minHeight: 24, maxHeight: 24)
+            .background(Theme.Palette.surfaceContainerLowest)
+            .overlay(
+                RoundedRectangle(cornerRadius: 5)
+                    .strokeBorder(borderColor, lineWidth: isFocused || isInvalid ? 1.5 : 1)
+            )
+    }
+
+    private var borderColor: Color {
+        if isInvalid { return Theme.Palette.secondary }
+        if isFocused { return Theme.Palette.primary }
+        return Theme.Palette.outlineVariant
+    }
+}
+
+/// Borderless hour/minute picker that reports first-responder (focus) changes,
+/// so its surrounding `DigestFieldBox` can highlight on click. SwiftUI's
+/// `DatePicker` doesn't drive `@FocusState` on macOS, hence the AppKit wrapper;
+/// borderless so the box (not the control) draws the field's border.
+struct DigestTimeField: NSViewRepresentable {
+    @Binding var date: Date
+    var onFocusChange: (Bool) -> Void
+
+    func makeNSView(context: Context) -> FocusReportingDatePicker {
+        let picker = FocusReportingDatePicker()
+        picker.datePickerStyle = .textField
+        picker.datePickerElements = .hourMinute
+        picker.isBordered = false
+        picker.drawsBackground = false
+        picker.target = context.coordinator
+        picker.action = #selector(Coordinator.dateChanged(_:))
+        picker.dateValue = date
+        picker.focusChanged = onFocusChange
+        return picker
+    }
+
+    func updateNSView(_ nsView: FocusReportingDatePicker, context: Context) {
+        context.coordinator.parent = self
+        nsView.focusChanged = onFocusChange
+        let cal = Calendar.current
+        if cal.component(.hour, from: nsView.dateValue) != cal.component(.hour, from: date)
+            || cal.component(.minute, from: nsView.dateValue) != cal.component(.minute, from: date)
+        {
+            nsView.dateValue = date
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject {
+        var parent: DigestTimeField
+        init(_ parent: DigestTimeField) { self.parent = parent }
+        @MainActor @objc func dateChanged(_ sender: NSDatePicker) {
+            parent.date = sender.dateValue
+        }
+    }
+}
+
+/// `NSDatePicker` that reports gaining/losing first-responder status, so SwiftUI
+/// can show a focus highlight on click.
+final class FocusReportingDatePicker: NSDatePicker {
+    var focusChanged: ((Bool) -> Void)?
+
+    override func becomeFirstResponder() -> Bool {
+        let didBecome = super.becomeFirstResponder()
+        if didBecome { focusChanged?(true) }
+        return didBecome
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let didResign = super.resignFirstResponder()
+        if didResign { focusChanged?(false) }
+        return didResign
+    }
 }

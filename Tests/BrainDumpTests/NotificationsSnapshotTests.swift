@@ -29,6 +29,47 @@ struct NotificationsSnapshotTests {
             filename: "notifications-settings-enabled.png")
     }
 
+    /// A large threshold exercises the typeable field — it must display
+    /// multi-digit numbers cleanly and stay aligned with the "Notify at" field.
+    @Test
+    func captureNotificationsSettingsLargeThreshold() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let state = AppState(
+            context: context,
+            now: { TestDate.at(2026, 6, 12) },
+            wiseSaying: WiseSaying(quote: "x", author: "y"),
+            defaults: UserDefaults(suiteName: "BrainDumpNotif.\(UUID().uuidString)")!
+        )
+        state.backlogDigestEnabled = true
+        state.backlogDigestThresholdDays = 120
+        let view = SettingsSheet(state: state, initialSection: .notifications, dismiss: {})
+        renderViaHostingWindow(
+            view, size: NSSize(width: 820, height: 540),
+            filename: "notifications-settings-large-threshold.png")
+    }
+
+    /// An out-of-range threshold flags the field red (with an inline message)
+    /// and dims/disables Save — instead of silently clamping to the maximum.
+    @Test
+    func captureNotificationsSettingsInvalidThreshold() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let state = AppState(
+            context: context,
+            now: { TestDate.at(2026, 6, 12) },
+            wiseSaying: WiseSaying(quote: "x", author: "y"),
+            defaults: UserDefaults(suiteName: "BrainDumpNotif.\(UUID().uuidString)")!
+        )
+        state.backlogDigestEnabled = true
+        // Out of range — the field seeds its text from this, so it starts invalid.
+        state.backlogDigestThresholdDays = 9999
+        let view = SettingsSheet(state: state, initialSection: .notifications, dismiss: {})
+        renderViaHostingWindow(
+            view, size: NSSize(width: 820, height: 540),
+            filename: "notifications-settings-invalid-threshold.png")
+    }
+
     @Test
     func captureTimeBlockSheetWithReminder() throws {
         Fonts.registerIfNeeded()
@@ -59,6 +100,59 @@ struct NotificationsSnapshotTests {
         renderViaHostingWindow(
             view, size: NSSize(width: 480, height: 620),
             filename: "notifications-taskdetail-reminder.png")
+    }
+
+    /// The focus (navy) and invalid (crimson) highlight rings a digest field
+    /// shows. Focus can't be engaged in an offscreen render, so this renders the
+    /// highlight states directly to verify their appearance.
+    @Test
+    func captureDigestFieldHighlightStates() throws {
+        Fonts.registerIfNeeded()
+        let view = VStack(alignment: .leading, spacing: 20) {
+            highlightSample("Focused", isFocused: true, isInvalid: false)
+            highlightSample("Invalid", isFocused: false, isInvalid: true)
+            highlightSample("Idle", isFocused: false, isInvalid: false)
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Theme.Palette.surfaceContainerLowest)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 320, height: 260),
+            filename: "notifications-digest-field-highlight.png")
+    }
+
+    private func highlightSample(_ title: String, isFocused: Bool, isInvalid: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(Theme.Font.labelMd).foregroundStyle(Theme.Palette.onSurface)
+            DigestFieldBox(isFocused: isFocused, isInvalid: isInvalid) {
+                Text("9:00 AM")
+                    .foregroundStyle(Theme.Palette.onSurface)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .frame(width: 90)
+        }
+    }
+
+    /// The time field highlights on click because its `NSDatePicker` reports
+    /// first-responder changes — SwiftUI's `@FocusState` doesn't fire for
+    /// `DatePicker` on macOS, so this AppKit hook is what drives the highlight.
+    @Test
+    func timeFieldReportsFocusChanges() {
+        var events: [Bool] = []
+        let picker = FocusReportingDatePicker()
+        picker.datePickerStyle = .textField
+        picker.datePickerElements = .hourMinute
+        picker.focusChanged = { events.append($0) }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 120, height: 40),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView?.addSubview(picker)
+        window.makeKeyAndOrderFront(nil)
+
+        #expect(window.makeFirstResponder(picker))
+        #expect(events.contains(true))
+        _ = window.makeFirstResponder(nil)
+        #expect(events.last == false)
     }
 
     // MARK: - Harness (mirrors Stage5/Stage6 snapshot tests)
