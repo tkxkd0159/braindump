@@ -56,12 +56,18 @@ public final class CalendarService {
         cache.save(allEvents)
     }
 
-    public func setFeedEnabled(id: UUID, _ enabled: Bool) {
+    public func setFeedEnabled(id: UUID, _ enabled: Bool) async {
         guard let i = feeds.firstIndex(where: { $0.id == id }) else { return }
         feeds[i].isEnabled = enabled
-        if !enabled { allEvents.removeAll { $0.feedID == id } }
         persistFeeds()
-        cache.save(allEvents)
+        if enabled {
+            // Re-fetch so the re-enabled feed's events reappear immediately
+            // rather than waiting for the next scheduled refresh.
+            await refresh()
+        } else {
+            allEvents.removeAll { $0.feedID == id }
+            cache.save(allEvents)
+        }
     }
 
     private func persistFeeds() { store.save(feeds) }

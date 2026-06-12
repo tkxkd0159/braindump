@@ -7,6 +7,7 @@ public struct CalendarSettingsView: View {
     @State private var newName: String = ""
     @State private var newURL: String = ""
     @State private var newColor: Int = 0
+    @State private var pendingDeletion: CalendarFeed?
 
     public init(state: AppState) { self.state = state }
 
@@ -27,6 +28,21 @@ public struct CalendarSettingsView: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .alert(
+            "Remove subscription?",
+            isPresented: Binding(
+                get: { pendingDeletion != nil },
+                set: { if !$0 { pendingDeletion = nil } }),
+            presenting: pendingDeletion
+        ) { feed in
+            Button("Cancel", role: .cancel) { pendingDeletion = nil }
+            Button("Remove", role: .destructive) {
+                calendar.removeFeed(id: feed.id)
+                pendingDeletion = nil
+            }
+        } message: { feed in
+            Text("Remove \u{201C}\(feed.name.isEmpty ? "this calendar" : feed.name)\u{201D} and all of its events from your schedule? This doesn't change the calendar itself, and you can re-add it anytime.")
+        }
     }
 
     private var intro: some View {
@@ -56,9 +72,9 @@ public struct CalendarSettingsView: View {
                     Spacer()
                     Toggle("", isOn: Binding(
                         get: { feed.isEnabled },
-                        set: { calendar.setFeedEnabled(id: feed.id, $0) }))
+                        set: { enabled in Task { await calendar.setFeedEnabled(id: feed.id, enabled) } }))
                         .labelsHidden()
-                    Button(action: { calendar.removeFeed(id: feed.id) }) {
+                    Button(action: { pendingDeletion = feed }) {
                         Image(systemName: "trash")
                             .font(.system(size: 13))
                             .foregroundStyle(Theme.Palette.secondary)

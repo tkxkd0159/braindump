@@ -121,3 +121,19 @@ END:VEVENT
     #expect(svc.events(on: TestDate.at(2026, 5, 22)).isEmpty)
     #expect(svc.feeds.isEmpty)
 }
+
+@MainActor
+@Test func enablingFeedRefetchesItsEventsWithoutExplicitRefresh() async {
+    let url = "https://feed/a.ics"
+    let feed = CalendarFeed(name: "Work", urlString: url)
+    let svc = makeService(StubFetcher(byURL: [url: busyICS]), feeds: [feed])
+    await svc.refresh()
+    #expect(svc.events(on: TestDate.at(2026, 5, 22)).count == 1)
+
+    await svc.setFeedEnabled(id: feed.id, false)
+    #expect(svc.events(on: TestDate.at(2026, 5, 22)).isEmpty)
+
+    // Re-enabling must repopulate immediately (no manual refresh call).
+    await svc.setFeedEnabled(id: feed.id, true)
+    #expect(svc.events(on: TestDate.at(2026, 5, 22)).count == 1)
+}
