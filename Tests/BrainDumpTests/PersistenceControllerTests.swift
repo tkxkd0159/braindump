@@ -69,4 +69,46 @@ struct PersistenceControllerTests {
         try context.save()
         #expect((try context.fetch(FetchDescriptor<Day>())).count == 1)
     }
+
+    @Test
+    func migrationPlanHasV1AndV2WithLightweightStage() {
+        #expect(BrainDumpMigrationPlan.schemas.count == 2)
+        #expect(BrainDumpMigrationPlan.stages.count == 1)
+        #expect(BrainDumpSchemaV1.versionIdentifier == Schema.Version(1, 0, 0))
+        #expect(BrainDumpSchemaV2.versionIdentifier == Schema.Version(2, 0, 0))
+    }
+
+    @Test
+    func reminderOffsetSurvivesReopen() throws {
+        let dir = URL.temporaryDirectory.appending(
+            path: "BrainDumpTest-\(UUID().uuidString)", directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appending(path: "BrainDump.store")
+
+        // First open: write an entry carrying a reminder offset, then close.
+        do {
+            let result = PersistenceController.makeContainer(storeURL: url)
+            #expect(result.recovery == .normal)
+            let context = ModelContext(result.container)
+            let day = Day(date: TestDate.at(2026, 6, 12))
+            context.insert(day)
+            let item = TaskItem(title: "Write")
+            item.day = day
+            context.insert(item)
+            let entry = ScheduleEntry(startMinute: 540, durationMinutes: 60, item: item, day: day)
+            entry.reminderOffsetMinutes = 15
+            context.insert(entry)
+            try context.save()
+        }
+
+        // Reopen the same store file via the migration plan: opens normally and
+        // preserves the offset (proves the V2 schema is stable across reopen).
+        let result = PersistenceController.makeContainer(storeURL: url)
+        #expect(result.recovery == .normal)
+        let context = ModelContext(result.container)
+        let entries = try context.fetch(FetchDescriptor<ScheduleEntry>())
+        #expect(entries.count == 1)
+        #expect(entries.first?.reminderOffsetMinutes == 15)
+    }
 }
