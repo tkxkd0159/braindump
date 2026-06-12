@@ -25,11 +25,13 @@ public struct DayView: View {
     public var body: some View {
         let dayService = DayService(context: context)
         let day = dayService.day(for: state.selectedDate)
+        let calendarEvents = state.calendar.events(on: state.selectedDate)
+        let calendarBusy = state.calendar.busyRanges(on: state.selectedDate)
         let openDetail: (TaskDetailFocus) -> Void = { focus in
             detailFocus = focus
         }
         let onSchedule: (TaskItem) -> Void = { item in
-            let occupied = day.schedule.map { $0.startMinute..<$0.endMinute }
+            let occupied = day.schedule.map { $0.startMinute..<$0.endMinute } + calendarBusy
             let start = state.defaultScheduleStartMinute(occupied: occupied)
             let duration = min(60, max(15, state.dayEndMinute - start))
             scheduleError = nil
@@ -60,6 +62,7 @@ public struct DayView: View {
                     isReadOnly: state.isPast,
                     dayStartHour: state.dayStartHour,
                     dayEndHour: state.dayEndHour,
+                    calendarEvents: calendarEvents,
                     openDetail: openDetail,
                     onScheduleChanged: { state.syncScheduleNotifications(for: day) }
                 )
@@ -77,7 +80,7 @@ public struct DayView: View {
                         confirmSchedule(
                             day: day, itemID: request.itemID, startMinute: startMinute,
                             durationMinutes: durationMinutes, colorIndex: colorIndex,
-                            reminderOffsetMinutes: reminderOffset)
+                            reminderOffsetMinutes: reminderOffset, additionalBusyRanges: calendarBusy)
                     },
                     onCancel: { pendingSchedule = nil }
                 )
@@ -103,7 +106,7 @@ public struct DayView: View {
 
     private func confirmSchedule(
         day: Day, itemID: UUID, startMinute: Int, durationMinutes: Int, colorIndex: Int,
-        reminderOffsetMinutes: Int?
+        reminderOffsetMinutes: Int?, additionalBusyRanges: [Range<Int>] = []
     ) {
         defer { pendingSchedule = nil }
         guard let item = day.items.first(where: { $0.id == itemID }) else {
@@ -113,7 +116,8 @@ public struct DayView: View {
         do {
             _ = try ScheduleService(context: context).schedule(
                 item, on: day, startMinute: startMinute, durationMinutes: durationMinutes,
-                colorIndex: colorIndex, reminderOffsetMinutes: reminderOffsetMinutes)
+                colorIndex: colorIndex, reminderOffsetMinutes: reminderOffsetMinutes,
+                additionalBusyRanges: additionalBusyRanges)
             scheduleError = nil
             state.syncScheduleNotifications(for: day)
         } catch TodoError.scheduleConflict {

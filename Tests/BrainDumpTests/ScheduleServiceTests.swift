@@ -317,3 +317,39 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
     scheduleService.setReminderOffset(entry, nil)
     #expect(entry.reminderOffsetMinutes == nil)
 }
+
+@MainActor
+@Test func scheduleRejectsOverlapWithCalendarBusyRange() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "Focus", on: day)
+    // Calendar meeting 10:00–11:00.
+    let busy = [10 * 60 ..< 11 * 60]
+
+    #expect(throws: TodoError.scheduleConflict) {
+        try scheduleService.schedule(item, on: day, startMinute: 10 * 60 + 30,
+                                     durationMinutes: 60, additionalBusyRanges: busy)
+    }
+}
+
+@MainActor
+@Test func scheduleAllowsAdjacentToCalendarBusyRange() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "Focus", on: day)
+    let busy = [10 * 60 ..< 11 * 60]
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 11 * 60,
+                                             durationMinutes: 60, additionalBusyRanges: busy)
+    #expect(entry.startMinute == 11 * 60)
+}
+
+@MainActor
+@Test func rescheduleRejectsOverlapWithCalendarBusyRange() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "Focus", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 8 * 60, durationMinutes: 60)
+    let busy = [10 * 60 ..< 11 * 60]
+
+    #expect(throws: TodoError.scheduleConflict) {
+        try scheduleService.reschedule(entry, startMinute: 10 * 60, durationMinutes: 60,
+                                       additionalBusyRanges: busy)
+    }
+}

@@ -16,14 +16,15 @@ public final class ScheduleService {
         startMinute: Int,
         durationMinutes: Int,
         colorIndex: Int = 0,
-        reminderOffsetMinutes: Int? = nil
+        reminderOffsetMinutes: Int? = nil,
+        additionalBusyRanges: [Range<Int>] = []
     ) throws -> ScheduleEntry {
         guard durationMinutes >= 15, startMinute >= 0, startMinute + durationMinutes <= 24 * 60 else {
             throw TodoError.scheduleOutOfRange
         }
         let newRange = startMinute..<(startMinute + durationMinutes)
-        for existing in day.schedule {
-            let existingRange = existing.startMinute..<(existing.startMinute + existing.durationMinutes)
+        let existingRanges = day.schedule.map { $0.startMinute..<($0.startMinute + $0.durationMinutes) }
+        for existingRange in existingRanges + additionalBusyRanges {
             if newRange.overlaps(existingRange) {
                 throw TodoError.scheduleConflict
             }
@@ -44,18 +45,22 @@ public final class ScheduleService {
     public func reschedule(
         _ entry: ScheduleEntry,
         startMinute: Int,
-        durationMinutes: Int
+        durationMinutes: Int,
+        additionalBusyRanges: [Range<Int>] = []
     ) throws {
         guard durationMinutes >= 15, startMinute >= 0, startMinute + durationMinutes <= 24 * 60 else {
             throw TodoError.scheduleOutOfRange
         }
         let newRange = startMinute..<(startMinute + durationMinutes)
+        var ranges = additionalBusyRanges
         if let day = entry.day {
-            for existing in day.schedule where existing.id != entry.id {
-                let existingRange = existing.startMinute..<(existing.startMinute + existing.durationMinutes)
-                if newRange.overlaps(existingRange) {
-                    throw TodoError.scheduleConflict
-                }
+            ranges += day.schedule
+                .filter { $0.id != entry.id }
+                .map { $0.startMinute..<($0.startMinute + $0.durationMinutes) }
+        }
+        for existingRange in ranges {
+            if newRange.overlaps(existingRange) {
+                throw TodoError.scheduleConflict
             }
         }
         entry.startMinute = startMinute

@@ -45,6 +45,7 @@ public struct SettingsSheet: View {
             navHeader
             VStack(alignment: .leading, spacing: 2) {
                 navItem(.general, icon: "gearshape.fill", label: "General")
+                navItem(.calendar, icon: "calendar", label: "Calendars")
                 navItem(.notifications, icon: "bell.fill", label: "Notifications")
                 navItem(.updates, icon: "arrow.down.circle.fill", label: "Software Update")
             }
@@ -148,6 +149,7 @@ public struct SettingsSheet: View {
     private var sectionTitle: String {
         switch section {
         case .general: return "General Settings"
+        case .calendar: return "Calendar Subscriptions"
         case .notifications: return "Notifications"
         case .updates: return "Software Update"
         }
@@ -158,6 +160,8 @@ public struct SettingsSheet: View {
         switch section {
         case .general:
             generalSection
+        case .calendar:
+            CalendarSettingsView(state: state)
         case .notifications:
             notificationsSection
         case .updates:
@@ -440,5 +444,5 @@ public struct SettingsSheet: View {
 }
 
 public enum SettingsSection {
-    case general, notifications, updates
+    case general, calendar, notifications, updates
 }

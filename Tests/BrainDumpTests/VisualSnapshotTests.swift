@@ -71,6 +71,77 @@ struct VisualSnapshotTests {
     }
 
     @Test
+    func captureScheduleSectionWithCalendarEvents() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        let scheduleService = ScheduleService(context: context)
+        let focus = taskService.addBrainDumpItem(title: "Deep work", on: day)
+        _ = try scheduleService.schedule(focus, on: day, startMinute: 8 * 60, durationMinutes: 60)
+
+        let feedID = UUID()
+        let events = [
+            CalendarEvent(id: "e1", feedID: feedID, title: "Standup",
+                          start: TestDate.at(2026, 5, 22, hour: 9, minute: 30),
+                          end: TestDate.at(2026, 5, 22, hour: 10), isAllDay: false, colorIndex: 1),
+            CalendarEvent(id: "e2", feedID: feedID, title: "Design review",
+                          start: TestDate.at(2026, 5, 22, hour: 13),
+                          end: TestDate.at(2026, 5, 22, hour: 14, minute: 30), isAllDay: false, colorIndex: 6),
+            CalendarEvent(id: "e3", feedID: feedID, title: "Company Holiday",
+                          start: TestDate.at(2026, 5, 22), end: TestDate.at(2026, 5, 23),
+                          isAllDay: true, colorIndex: 3),
+        ]
+
+        let view = ScheduleSection(day: day, isReadOnly: false, calendarEvents: events)
+            .environment(\.modelContext, context)
+            .padding(24)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 700, height: 1400),
+            filename: "snapshot-schedule-calendar.png")
+    }
+
+    @Test
+    func captureCalendarSettings() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let defaults = UserDefaults(suiteName: "snap.cal.\(UUID().uuidString)")!
+        let store = CalendarFeedStore(defaults: defaults)
+        store.save([
+            CalendarFeed(name: "Work", urlString: "https://calendar.google.com/calendar/ical/work/basic.ics", colorIndex: 1),
+            CalendarFeed(name: "Personal", urlString: "https://calendar.google.com/calendar/ical/me/basic.ics", colorIndex: 6, isEnabled: false),
+        ])
+        let calendar = CalendarService(
+            store: store, fetcher: URLSessionICalFeedFetcher(),
+            cache: CalendarCache(url: URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("snap-\(UUID().uuidString).json")),
+            now: { TestDate.at(2026, 5, 22) })
+        let state = AppState(context: context, now: { TestDate.at(2026, 5, 22) },
+                             defaults: defaults, calendarService: calendar)
+
+        let view = CalendarSettingsView(state: state)
+            .environment(\.modelContext, context)
+            .frame(width: 560)
+            .background(Theme.Palette.surfaceContainerLowest)
+        renderViaHostingWindow(view, size: NSSize(width: 560, height: 640),
+                               filename: "snapshot-calendar-settings.png")
+    }
+
+    @Test
+    func captureCalendarSettingsEditSheet() throws {
+        Fonts.registerIfNeeded()
+        let view = EditFeedSheet(
+            feed: CalendarFeed(
+                name: "Work",
+                urlString: "https://calendar.google.com/calendar/ical/work/basic.ics",
+                colorIndex: 1),
+            onSave: { _ in }, onCancel: {})
+            .background(Theme.Palette.surfaceContainerLowest)
+        renderViaHostingWindow(view, size: NSSize(width: 460, height: 360),
+                               filename: "snapshot-calendar-edit-sheet.png")
+    }
+
+    @Test
     func captureLeftColumn() throws {
         Fonts.registerIfNeeded()
         let context = try InMemoryStore.makeContext()
@@ -178,10 +249,10 @@ struct VisualSnapshotTests {
         #expect(AppShell.sidebarThreshold == 1248)
     }
 
-    /// `contentTopInset` is the single inset the sidebar title and every tab's
-    /// content both use, so their tops line up with the sidebar toggle button.
+    /// `contentTopInset` is the single inset the sidebar's first nav item and
+    /// every tab's content both use, so their tops line up with the date header.
     @Test
-    func contentTopInsetAlignsSidebarTitleAndCanvasContent() {
+    func contentTopInsetAlignsSidebarNavAndCanvasContent() {
         #expect(AppShell.contentTopInset == 28)
     }
 
@@ -778,21 +849,13 @@ struct VisualSnapshotTests {
 private struct SidebarPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Daily Timebox Planner")
-                    .font(Theme.Font.labelMd)
-                    .tracking(0.5)
-                    .foregroundStyle(Theme.Palette.onSurfaceVariant)
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 28)
-            .padding(.bottom, 40)
             VStack(alignment: .leading, spacing: 6) {
                 navItem("calendar.day.timeline.left", "Today", isActive: true)
                 navItem("list.bullet.clipboard", "Tasks", isActive: false)
                 navItem("tray.full", "Backlog", isActive: false)
             }
             .padding(.horizontal, 16)
+            .padding(.top, 28)
             Spacer()
             Rectangle()
                 .fill(Theme.Palette.outlineVariant)
@@ -817,7 +880,7 @@ private struct SidebarPreview: View {
                 .font(.system(size: 16, weight: isActive ? .semibold : .regular))
                 .frame(width: 22)
             Text(label)
-                .font(Theme.Font.labelMd)
+                .font(Theme.Font.navLabel)
                 .tracking(0.7)
             Spacer(minLength: 0)
         }

@@ -70,6 +70,8 @@ public enum Theme {
         // Brain Dump variant uses font-semibold per reference markup.
         public static let sectionLabelHeavy = sans(size: 14, weight: .semibold)
         public static let labelMd = sans(size: 14, weight: .semibold)
+        // Sidebar navigation rows — a touch larger than labelMd for readability.
+        public static let navLabel = sans(size: 15, weight: .semibold)
         public static let bodyLg = serif(size: 18, weight: .regular)
         public static let bodyLgSemibold = serif(size: 18, weight: .semibold)
         public static let bodyMd = serif(size: 16, weight: .regular)

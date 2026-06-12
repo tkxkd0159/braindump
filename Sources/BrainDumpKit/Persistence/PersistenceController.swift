@@ -57,9 +57,25 @@ public enum BrainDumpMigrationPlan: SchemaMigrationPlan {
 }
 
 public enum PersistenceController {
-    /// ~/Library/Application Support/BrainDump/BrainDump.store
+    /// Application Support subdirectory for this build. Debug builds use a
+    /// separate folder so a dev build can't migrate or clobber the installed
+    /// Release app's real data (e.g. when iterating on a schema migration).
+    /// The calendar cache shares this directory (see `CalendarCache`).
+    public static var appDirectoryName: String {
+        #if DEBUG
+        appDirectoryName(debug: true)
+        #else
+        appDirectoryName(debug: false)
+        #endif
+    }
+
+    static func appDirectoryName(debug: Bool) -> String {
+        debug ? "BrainDump-debug" : "BrainDump"
+    }
+
+    /// ~/Library/Application Support/BrainDump[-debug]/BrainDump.store
     public static func defaultStoreURL() -> URL {
-        URL.applicationSupportDirectory.appending(path: "BrainDump/BrainDump.store")
+        URL.applicationSupportDirectory.appending(path: "\(appDirectoryName)/BrainDump.store")
     }
 
     /// Never throws, never `fatalError`s. Tries to open the versioned store;
