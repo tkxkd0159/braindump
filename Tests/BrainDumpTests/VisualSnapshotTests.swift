@@ -200,6 +200,56 @@ struct VisualSnapshotTests {
             view, size: NSSize(width: 256, height: 900), filename: "snapshot-sidebar.png")
     }
 
+    /// Notes-style toggle placement: with the sidebar shown, the `sidebar.left`
+    /// toggle must sit on the title-bar line at the *sidebar's* leading edge
+    /// (window-x≈76, over the sidebar's surface), not floating over the canvas to
+    /// the right of the divider. Rendered at threshold width so the sidebar is
+    /// visible. (Borderless render has no traffic-lights — the glyph-vs-lights
+    /// alignment is verified on the real app; here we confirm it's over the
+    /// sidebar.) Inspect the top-left: the toggle glyph should be left of the
+    /// 256pt sidebar divider.
+    @Test
+    func captureSidebarToggleInSidebarHeader() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        _ = TaskService(context: context).addBrainDumpItem(
+            title: "Finalize Manuscript Revision", on: day)
+
+        let view = AppShell()
+            .environment(\.modelContext, context)
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: AppShell.sidebarThreshold, height: 900),
+            filename: "snapshot-sidebar-toggle-in-header.png"
+        )
+    }
+
+    /// The hard part the user asked for: the toggle must sit on the *title-bar
+    /// line* (level with the traffic-lights), not down in the content near the
+    /// nav items. With a 28pt top safe-area inset simulating
+    /// `.windowStyle(.hiddenTitleBar)`, the toggle (which `.ignoresSafeArea(.top)`)
+    /// must render up in that top band while the sidebar nav stays below it.
+    /// Inspect the top-left: the `sidebar.left` glyph should be clearly *above*
+    /// the "Today" nav row, in the reserved band — not adjacent to it.
+    @Test
+    func captureSidebarToggleOnTitleBarLine() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        _ = TaskService(context: context).addBrainDumpItem(
+            title: "Finalize Manuscript Revision", on: day)
+
+        let view = AppShell()
+            .environment(\.modelContext, context)
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: AppShell.sidebarThreshold, height: 900),
+            filename: "snapshot-sidebar-toggle-title-line.png",
+            topSafeAreaInset: 28
+        )
+    }
+
     /// When the window is too narrow to fit sidebar + canvas, the sidebar
     /// must auto-collapse even though the user's `isSidebarVisible`
     /// preference is still on. Renders at width just below the threshold;
@@ -809,9 +859,19 @@ struct VisualSnapshotTests {
 
     // MARK: - Rendering
 
-    private func renderViaHostingWindow<V: View>(_ view: V, size: NSSize, filename: String) {
+    private func renderViaHostingWindow<V: View>(
+        _ view: V, size: NSSize, filename: String, topSafeAreaInset: CGFloat = 0
+    ) {
         let hosting = NSHostingView(rootView: view.frame(width: size.width, height: size.height))
         hosting.frame = NSRect(origin: .zero, size: size)
+        // Simulate the top safe-area band that `.windowStyle(.hiddenTitleBar)`
+        // reserves for the traffic-lights (the real app's title-bar line). Lets
+        // an offscreen render show whether `.ignoresSafeArea(.top)` lifts the
+        // sidebar toggle into that band, which the borderless window can't.
+        if topSafeAreaInset > 0 {
+            hosting.additionalSafeAreaInsets = NSEdgeInsets(
+                top: topSafeAreaInset, left: 0, bottom: 0, right: 0)
+        }
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless],

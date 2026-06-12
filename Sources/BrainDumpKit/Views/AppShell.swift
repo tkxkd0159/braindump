@@ -29,6 +29,13 @@ public struct AppShell: View {
     // so the sidebar navigation lines up with the canvas's date header.
     static let contentTopInset: CGFloat = 28
 
+    // Sidebar-toggle metrics. The toggle drops just right of the macOS
+    // traffic-lights (which span x≈9–69) on the same title-bar line, so it
+    // clears them and stays left of `WindowSizing.titleBarControlsInset` (the
+    // zoom-exclusion boundary).
+    static let sidebarToggleLeadingInset: CGFloat = 76
+    static let sidebarToggleSize: CGFloat = 32
+
     public init(
         storeRecovery: StoreRecovery = .normal,
         initialDestination: SidebarDestination? = nil,
@@ -58,6 +65,19 @@ public struct AppShell: View {
                     }
                     .animation(.easeInOut(duration: 0.18), value: effectivelyVisible)
                     .background(Theme.Palette.surface)
+                    // The sidebar toggle floats at a fixed window position on the
+                    // traffic-light line (macOS Notes-style): it sits outside the
+                    // sidebar/canvas split, so it holds its place while the sidebar
+                    // shows/hides — over the sidebar's surface when shown ("in the
+                    // sidebar section"), over the canvas when hidden. Ignoring the
+                    // top safe area lifts it into the title-bar band, level with the
+                    // traffic-lights. (The sidebar has no heading for it to overlap
+                    // in fullscreen — the issue that once pushed it into the canvas.)
+                    .overlay(alignment: .topLeading) {
+                        SidebarToggle(state: state)
+                            .padding(.leading, Self.sidebarToggleLeadingInset)
+                            .ignoresSafeArea(.container, edges: .top)
+                    }
                 }
                 .frame(minWidth: Self.canvasMin, minHeight: 760)
                 // Keep the displayed day in sync with the wall clock while the
@@ -245,10 +265,6 @@ private struct MainCanvas: View {
                 }
             }
         }
-        .overlay(alignment: .topLeading) {
-            SidebarToggle(state: state)
-                .padding(.leading, 16)
-        }
         // ⌘1/⌘2/⌘3 destination shortcuts. Hosted here (always rendered) rather
         // than in the Sidebar, which is torn out of the hierarchy — taking its
         // key equivalents with it — when collapsed or hidden.
@@ -288,7 +304,7 @@ private struct SidebarToggle: View {
             Image(systemName: "sidebar.left")
                 .font(.system(size: 16, weight: .regular))
                 .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                .frame(width: 32, height: 32)
+                .frame(width: AppShell.sidebarToggleSize, height: AppShell.sidebarToggleSize)
                 .background(Theme.Palette.surfaceContainerLow.opacity(0.0001))
                 .contentShape(Rectangle())
         }
