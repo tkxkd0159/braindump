@@ -114,14 +114,19 @@ private struct Sidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Order matches `SidebarDestination.allCases`, which backs the
+            // ⌘1/⌘2/⌘3 shortcuts (see `AppState.selectSidebarItem`). Keep in sync.
             VStack(alignment: .leading, spacing: 6) {
                 NavItem(
                     icon: "calendar.day.timeline.left", label: "Today", destination: .today,
                     state: state)
+                    .help("Today (⌘1)")
                 NavItem(
                     icon: "list.bullet.clipboard", label: "Tasks", destination: .tasks, state: state
                 )
+                .help("Tasks (⌘2)")
                 NavItem(icon: "tray.full", label: "Backlog", destination: .backlog, state: state)
+                    .help("Backlog (⌘3)")
             }
             .padding(.horizontal, 16)
             .padding(.top, AppShell.contentTopInset)
@@ -244,6 +249,10 @@ private struct MainCanvas: View {
             SidebarToggle(state: state)
                 .padding(.leading, 16)
         }
+        // ⌘1/⌘2/⌘3 destination shortcuts. Hosted here (always rendered) rather
+        // than in the Sidebar, which is torn out of the hierarchy — taking its
+        // key equivalents with it — when collapsed or hidden.
+        .background { NavigationShortcuts(state: state) }
     }
 
     private var todayLayout: some View {
@@ -286,6 +295,28 @@ private struct SidebarToggle: View {
         .buttonStyle(.plain)
         .help(state.isSidebarVisible ? "Hide Sidebar" : "Show Sidebar")
         .keyboardShortcut("b", modifiers: [.command])
+    }
+}
+
+/// Invisible key-equivalent buttons backing ⌘1/⌘2/⌘3 (Today / Tasks / Backlog).
+/// Indices map through `AppState.selectSidebarItem(at:)`. Zero-size and fully
+/// transparent, so they register window shortcuts without affecting layout or
+/// intercepting clicks; `accessibilityHidden` keeps them out of VoiceOver.
+private struct NavigationShortcuts: View {
+    @Bindable var state: AppState
+
+    var body: some View {
+        ZStack {
+            Button("Today") { state.selectSidebarItem(at: 0) }
+                .keyboardShortcut("1", modifiers: [.command])
+            Button("Tasks") { state.selectSidebarItem(at: 1) }
+                .keyboardShortcut("2", modifiers: [.command])
+            Button("Backlog") { state.selectSidebarItem(at: 2) }
+                .keyboardShortcut("3", modifiers: [.command])
+        }
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
     }
 }
 

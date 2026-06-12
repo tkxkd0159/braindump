@@ -140,6 +140,16 @@ public final class AppState {
         isSidebarVisible.toggle()
     }
 
+    /// Selects the sidebar destination at `index` in the sidebar's visual order
+    /// (0 = Today, 1 = Tasks, 2 = Backlog), backing the ⌘1/⌘2/⌘3 shortcuts. The
+    /// order is `SidebarDestination.allCases`, which the sidebar `NavItem`s
+    /// render in the same sequence. Out-of-range indices are ignored.
+    public func selectSidebarItem(at index: Int) {
+        let order = SidebarDestination.allCases
+        guard order.indices.contains(index) else { return }
+        selectedDestination = order[index]
+    }
+
     /// Update the day-window bounds. Returns false if invalid (caller can show an
     /// error). Validation: start ∈ 0...23, end ∈ 1...24, span ≥ 4 hours.
     @discardableResult
