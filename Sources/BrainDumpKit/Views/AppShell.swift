@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import SwiftData
 import SwiftUI
@@ -347,7 +348,7 @@ private struct NavigationShortcuts: View {
     }
 }
 
-private struct DateHeader: View {
+struct DateHeader: View {
     @Bindable var state: AppState
 
     @State private var hoveringDate: Bool = false
@@ -355,9 +356,15 @@ private struct DateHeader: View {
 
     private static let formatter: DateFormatter = {
         let f = DateFormatter()
-        f.dateStyle = .full
+        f.dateFormat = "EEE, MMM d, yyyy"
         return f
     }()
+
+    /// Fixed width reserved for the date so the trailing nav arrows never shift
+    /// as the date string changes day-to-day. Sized (with slack) to the widest
+    /// abbreviated date at headlineLg; a longer one truncates rather than
+    /// pushing the arrows. Verified by `captureDateHeaderButtonAlignment`.
+    private static let dateBoxWidth: CGFloat = 300
 
     private var formattedDate: String {
         Self.formatter.string(from: state.selectedDate)
@@ -366,22 +373,34 @@ private struct DateHeader: View {
     var body: some View {
         HStack(alignment: .top, spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Text(formattedDate)
-                        .font(Theme.Font.headlineLg)
-                        .tracking(-0.3)
-                        .foregroundStyle(Theme.Palette.primary)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(Theme.Palette.primaryContainer)
-                        .opacity(hoveringDate ? 1 : 0)
+                HStack(spacing: 4) {
+                    Button { showDatePicker = true } label: {
+                        DateLabel(text: formattedDate, isHovered: hoveringDate)
+                    }
+                    .buttonStyle(.plain)
+                    .onHover { inside in
+                        hoveringDate = inside
+                        if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                    }
+                    .onDisappear {
+                        // Pop only if we pushed, so unmounting mid-hover (e.g.
+                        // switching sidebar tab) can't leave the hand cursor stuck.
+                        if hoveringDate { NSCursor.pop(); hoveringDate = false }
+                    }
+                    .popover(isPresented: $showDatePicker, arrowEdge: .bottom) {
+                        MonthCalendarView(state: state, dismiss: { showDatePicker = false })
+                    }
+                    .frame(width: Self.dateBoxWidth, alignment: .leading)
+
+                    DayStepButton(systemName: "chevron.left", help: "Previous day", isDimmed: false) {
+                        state.goToPreviousDay()
+                    }
+                    DayStepButton(systemName: "chevron.right", help: "Next day", isDimmed: state.isToday) {
+                        state.goToNextDay()
+                    }
+                    .disabled(state.isToday)
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { showDatePicker = true }
-                .onHover { hoveringDate = $0 }
-                .popover(isPresented: $showDatePicker, arrowEdge: .bottom) {
-                    MonthCalendarView(state: state, dismiss: { showDatePicker = false })
-                }
+                .padding(.leading, -8)  // cancel DateLabel's pill inset so the date stays flush-left
 
                 Text(
                     "\u{201C}\(state.currentWiseSaying.quote)\u{201D}\u{00A0}— \(state.currentWiseSaying.author)"
@@ -393,5 +412,57 @@ private struct DateHeader: View {
                 .frame(maxWidth: 640, alignment: .leading)
             }
         }
+    }
+}
+
+/// The date text with an injectable hover state so the pill is renderable in a
+/// static snapshot (mirrors `Top3Section`'s `isHovered` parameter pattern).
+struct DateLabel: View {
+    let text: String
+    var isHovered: Bool = false
+
+    var body: some View {
+        Text(text)
+            .font(Theme.Font.headlineLg)
+            .tracking(-0.3)
+            .lineLimit(1)
+            .foregroundStyle(Theme.Palette.primary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Theme.Palette.primary.opacity(isHovered ? 0.07 : 0))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+/// A borderless chevron step button matching MonthCalendarView's nav style,
+/// with a matching hover highlight. `isDimmed` greys it out (the next-day
+/// button at today, which is also `.disabled`).
+private struct DayStepButton: View {
+    let systemName: String
+    let help: String
+    let isDimmed: Bool
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(isDimmed ? Theme.Palette.outline : Theme.Palette.primary)
+                .frame(width: 26, height: 26)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Theme.Palette.primary.opacity(hovering && !isDimmed ? 0.07 : 0))
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel(help)
+        .onHover { hovering = $0 }
     }
 }
