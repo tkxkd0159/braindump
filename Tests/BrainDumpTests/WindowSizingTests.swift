@@ -104,3 +104,24 @@ func doubleClickOverControlsDoesNotZoom() {
     // sidebar toggle region
     #expect(!WindowSizing.isTitleBarZoomClick(distanceFromTop: 12, xPosition: 92, clickCount: 2))
 }
+
+// MARK: - Sidebar toggle placement (macOS Notes behavior)
+//
+// The show/hide toggle floats at a fixed window position on the title-bar line,
+// level with the macOS traffic-lights and just to their right — outside the
+// sidebar/canvas split, so it holds its place while the sidebar shows/hides
+// (over the sidebar's surface when shown, the canvas when hidden).
+
+@MainActor
+@Test("the toggle clears the traffic-lights and stays inside the zoom-exclusion zone")
+func sidebarToggleClearsTrafficLightsAndStaysInZoomExclusion() {
+    // The macOS traffic-lights end ≈x69, so the toggle's leading edge must sit
+    // to their right (the old literal `16` overlapped them once the sidebar was
+    // hidden and the canvas slid to the window's left edge).
+    #expect(AppShell.sidebarToggleLeadingInset >= 70)
+    // The toggle's right edge must stay left of `titleBarControlsInset` so a
+    // double-click on it never triggers title-bar zoom.
+    #expect(
+        AppShell.sidebarToggleLeadingInset + AppShell.sidebarToggleSize
+            <= WindowSizing.titleBarControlsInset)
+}
