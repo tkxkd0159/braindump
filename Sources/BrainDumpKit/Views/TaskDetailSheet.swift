@@ -39,7 +39,8 @@ public struct TaskDetailSheet: View {
     @State private var colorIndex: Int
     @State private var customColorHex: String?
     @State private var scheduleEnabled: Bool
-    @State private var reminderMinuteOfDay: Int?
+    /// Minutes-before-start lead time for the reminder (`nil` = no reminder).
+    @State private var reminderOffset: Int?
     @State private var errorText: String?
     @State private var reminderAlert: String?
 
@@ -68,7 +69,7 @@ public struct TaskDetailSheet: View {
             _colorIndex = State(initialValue: 0)
             _customColorHex = State(initialValue: nil)
             _scheduleEnabled = State(initialValue: false)
-            _reminderMinuteOfDay = State(initialValue: nil)
+            _reminderOffset = State(initialValue: nil)
             startInEditModeAtInit = true
         case .edit(let item, let entry, let startInEditMode):
             _isEditing = State(initialValue: startInEditMode)
@@ -81,16 +82,20 @@ public struct TaskDetailSheet: View {
                 _colorIndex = State(initialValue: entry.colorIndex)
                 _customColorHex = State(initialValue: entry.customColorHex)
                 _scheduleEnabled = State(initialValue: true)
-                // Show a legacy lead-time reminder as its absolute time (start − offset).
-                _reminderMinuteOfDay = State(initialValue:
-                    entry.reminderMinuteOfDay ?? entry.reminderOffsetMinutes.map { entry.startMinute - $0 })
+                // Derive the "N before" lead time from the stored absolute
+                // reminder (or a legacy offset, which is already a lead time).
+                // Clamp ≥ 0 so a block dragged earlier than its reminder reads
+                // as "0 minutes" rather than a negative lead time.
+                _reminderOffset = State(initialValue:
+                    entry.reminderMinuteOfDay.map { max(0, entry.startMinute - $0) }
+                        ?? entry.reminderOffsetMinutes)
             } else {
                 _startMinute = State(initialValue: 9 * 60)
                 _endMinute = State(initialValue: 10 * 60)
                 _colorIndex = State(initialValue: 0)
                 _customColorHex = State(initialValue: nil)
                 _scheduleEnabled = State(initialValue: false)
-                _reminderMinuteOfDay = State(initialValue: nil)
+                _reminderOffset = State(initialValue: nil)
             }
             startInEditModeAtInit = startInEditMode
         }
@@ -192,7 +197,7 @@ public struct TaskDetailSheet: View {
                     startMinute: $startMinute,
                     endMinute: $endMinute
                 )
-                ColorSwatchRow(selected: $colorIndex, customHex: $customColorHex)
+                ColorField(selected: $colorIndex, customHex: $customColorHex)
                 reminderRow
             }
         } else {
@@ -208,7 +213,7 @@ public struct TaskDetailSheet: View {
                         startMinute: $startMinute,
                         endMinute: $endMinute
                     )
-                    ColorSwatchRow(selected: $colorIndex, customHex: $customColorHex)
+                    ColorField(selected: $colorIndex, customHex: $customColorHex)
                     reminderRow
                 }
             }
@@ -216,20 +221,13 @@ public struct TaskDetailSheet: View {
     }
 
     private var reminderRow: some View {
-        ReminderTimeRow(
-            minuteOfDay: $reminderMinuteOfDay,
-            dayDate: reminderDayDate,
-            defaultMinute: TimeRangePicker.snap(minute: startMinute))
+        ReminderOffsetRow(offsetMinutes: $reminderOffset)
     }
 
-    /// Start-of-day anchor for the reminder picker — the scheduled item's day.
-    private var reminderDayDate: Date {
-        focusDay?.date ?? Date().startOfLocalDay()
-    }
-
-    /// Enforce "within the day, later than now"; surface an alert otherwise.
-    private func validateReminder(dayStart: Date) -> Bool {
-        guard let minuteOfDay = reminderMinuteOfDay else { return true }
+    /// Enforce "within the day, later than now" on the resolved reminder time;
+    /// surface an alert otherwise.
+    private func validateReminder(minuteOfDay: Int?, dayStart: Date) -> Bool {
+        guard let minuteOfDay else { return true }
         let result = ReminderTime.validate(minuteOfDay: minuteOfDay, dayStart: dayStart, now: now)
         reminderAlert = ReminderTime.alertMessage(for: result)
         return reminderAlert == nil
@@ -318,12 +316,12 @@ public struct TaskDetailSheet: View {
             endMinute = entry.endMinute
             colorIndex = entry.colorIndex
             customColorHex = entry.customColorHex
-            reminderMinuteOfDay = entry.reminderMinuteOfDay
-                ?? entry.reminderOffsetMinutes.map { entry.startMinute - $0 }
+            reminderOffset = entry.reminderMinuteOfDay.map { max(0, entry.startMinute - $0) }
+                ?? entry.reminderOffsetMinutes
             scheduleEnabled = true
         } else {
             customColorHex = nil
-            reminderMinuteOfDay = nil
+            reminderOffset = nil
             scheduleEnabled = false
         }
         errorText = nil
@@ -383,7 +381,10 @@ public struct TaskDetailSheet: View {
                 return
             }
             let duration = end - start
-            guard validateReminder(dayStart: day.date) else { return }
+            // Resolve the "N before" lead time against the (snapped) start; the
+            // store stays absolute, so only the input style changed.
+            let reminderMinuteOfDay = reminderOffset.map { start - $0 }
+            guard validateReminder(minuteOfDay: reminderMinuteOfDay, dayStart: day.date) else { return }
             do {
                 if let entry {
                     let timeChanged = entry.startMinute != start || entry.durationMinutes != duration

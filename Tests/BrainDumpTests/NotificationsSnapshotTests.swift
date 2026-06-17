@@ -76,7 +76,7 @@ struct NotificationsSnapshotTests {
         let view = TimeBlockSheet(
             initialStartMinute: 9 * 60,
             initialDurationMinutes: 60,
-            initialReminderMinuteOfDay: 8 * 60 + 45, // 15 min before a 9:00 block
+            initialReminderOffsetMinutes: 15, // 15 minutes before
             dayDate: TestDate.at(2026, 6, 12),
             onConfirm: { _, _, _, _, _ in },
             onCancel: {}
@@ -84,6 +84,20 @@ struct NotificationsSnapshotTests {
         renderViaHostingWindow(
             view, size: NSSize(width: 460, height: 380),
             filename: "notifications-timeblock-reminder.png")
+    }
+
+    /// The Google-Calendar-style reminder offset input ("N [minutes|hours]
+    /// before") that replaces the absolute hour/minute clock picker.
+    @Test
+    func captureReminderOffsetRow() throws {
+        Fonts.registerIfNeeded()
+        let view = ReminderOffsetRowHarness(offset: 30)
+            .frame(width: 360)
+            .padding(24)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 408, height: 150),
+            filename: "notifications-reminder-offset-row.png")
     }
 
     @Test
@@ -99,7 +113,7 @@ struct NotificationsSnapshotTests {
         let view = TaskDetailSheet(focus: focus, dismiss: {})
             .environment(\.modelContext, context)
         renderViaHostingWindow(
-            view, size: NSSize(width: 480, height: 620),
+            view, size: NSSize(width: 480, height: 760),
             filename: "notifications-taskdetail-reminder.png")
     }
 
@@ -188,4 +202,12 @@ struct NotificationsSnapshotTests {
             Issue.record("write failed: \(error)")
         }
     }
+}
+
+/// Hosts `ReminderOffsetRow` with mutable state so it renders in its enabled
+/// "N before" form for the snapshot.
+private struct ReminderOffsetRowHarness: View {
+    @State private var offset: Int?
+    init(offset: Int?) { _offset = State(initialValue: offset) }
+    var body: some View { ReminderOffsetRow(offsetMinutes: $offset) }
 }

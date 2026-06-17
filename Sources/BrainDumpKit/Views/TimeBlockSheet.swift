@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Reminders-style time-block editor used by the brain-dump drop flow.
-/// Wraps the dual-clock TimeRangePicker plus a color swatch row and an absolute
-/// reminder time picker.
+/// Wraps the dual-clock TimeRangePicker plus a color field and a
+/// "N minutes/hours before" reminder offset input.
 public struct TimeBlockSheet: View {
     let initialStartMinute: Int
     let initialDurationMinutes: Int
@@ -20,7 +20,8 @@ public struct TimeBlockSheet: View {
     @State private var endMinute: Int
     @State private var colorIndex: Int
     @State private var customColorHex: String?
-    @State private var reminderMinuteOfDay: Int?
+    /// Minutes-before-start lead time for the reminder (`nil` = no reminder).
+    @State private var reminderOffset: Int?
     @State private var error: String?
     @State private var reminderAlert: String?
 
@@ -29,7 +30,7 @@ public struct TimeBlockSheet: View {
         initialDurationMinutes: Int = 60,
         initialColorIndex: Int = 0,
         initialCustomColorHex: String? = nil,
-        initialReminderMinuteOfDay: Int? = nil,
+        initialReminderOffsetMinutes: Int? = nil,
         dayStartHour: Int = 5,
         dayEndHour: Int = 22,
         dayDate: Date = Date().startOfLocalDay(),
@@ -51,7 +52,7 @@ public struct TimeBlockSheet: View {
         _endMinute = State(initialValue: max(snappedStart + 15, snappedEnd))
         _colorIndex = State(initialValue: initialColorIndex)
         _customColorHex = State(initialValue: initialCustomColorHex)
-        _reminderMinuteOfDay = State(initialValue: initialReminderMinuteOfDay)
+        _reminderOffset = State(initialValue: initialReminderOffsetMinutes)
     }
 
     public var body: some View {
@@ -63,11 +64,8 @@ public struct TimeBlockSheet: View {
                 dayStartHour: dayStartHour,
                 dayEndHour: dayEndHour
             )
-            ColorSwatchRow(selected: $colorIndex, customHex: $customColorHex)
-            ReminderTimeRow(
-                minuteOfDay: $reminderMinuteOfDay,
-                dayDate: dayDate,
-                defaultMinute: TimeRangePicker.snap(minute: startMinute))
+            ColorField(selected: $colorIndex, customHex: $customColorHex)
+            ReminderOffsetRow(offsetMinutes: $reminderOffset)
             if let error {
                 Text(error)
                     .font(Theme.Font.caption)
@@ -129,13 +127,17 @@ public struct TimeBlockSheet: View {
             error = "Time must be within the day"
             return
         }
-        guard validateReminder() else { return }
+        // Convert the "N before" lead time into an absolute reminder time on the
+        // day; storage/planning stay absolute, so only the input style changed.
+        let reminderMinuteOfDay = reminderOffset.map { start - $0 }
+        guard validateReminder(minuteOfDay: reminderMinuteOfDay) else { return }
         onConfirm(start, duration, colorIndex, customColorHex, reminderMinuteOfDay)
     }
 
-    /// Enforce "within the day, later than now"; surface an alert otherwise.
-    private func validateReminder() -> Bool {
-        guard let minuteOfDay = reminderMinuteOfDay else { return true }
+    /// Enforce "within the day, later than now" on the resolved reminder time;
+    /// surface an alert otherwise.
+    private func validateReminder(minuteOfDay: Int?) -> Bool {
+        guard let minuteOfDay else { return true }
         let result = ReminderTime.validate(minuteOfDay: minuteOfDay, dayStart: dayDate, now: now)
         reminderAlert = ReminderTime.alertMessage(for: result)
         return reminderAlert == nil

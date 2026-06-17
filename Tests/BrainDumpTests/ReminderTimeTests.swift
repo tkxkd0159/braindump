@@ -53,3 +53,51 @@ import Testing
     #expect(ReminderTime.alertMessage(for: .notInFuture) == "Choose a reminder time later than now.")
     #expect(ReminderTime.alertMessage(for: .outsideDay) == "Choose a reminder time within the day.")
 }
+
+// MARK: - Google-Calendar-style "N minutes/hours before" offset input
+
+@Test func reminderUnitMinutesPerStepIsMinutesOrHours() {
+    #expect(ReminderTime.Unit.minutes.minutesPerStep == 1)
+    #expect(ReminderTime.Unit.hours.minutesPerStep == 60)
+}
+
+@Test func reminderOffsetMinutesMultipliesAmountByUnit() {
+    #expect(ReminderTime.offsetMinutes(amount: 10, unit: .minutes) == 10)
+    #expect(ReminderTime.offsetMinutes(amount: 2, unit: .hours) == 120)
+    #expect(ReminderTime.offsetMinutes(amount: 0, unit: .minutes) == 0)
+}
+
+@Test func reminderOffsetMinutesClampsNegativeAmountToZero() {
+    #expect(ReminderTime.offsetMinutes(amount: -5, unit: .minutes) == 0)
+    #expect(ReminderTime.offsetMinutes(amount: -1, unit: .hours) == 0)
+}
+
+@Test func reminderSplitPrefersHoursOnCleanMultiples() {
+    let twoHours = ReminderTime.split(offsetMinutes: 120)
+    #expect(twoHours.amount == 2 && twoHours.unit == .hours)
+    let oneHour = ReminderTime.split(offsetMinutes: 60)
+    #expect(oneHour.amount == 1 && oneHour.unit == .hours)
+}
+
+@Test func reminderSplitUsesMinutesOtherwise() {
+    let ten = ReminderTime.split(offsetMinutes: 10)
+    #expect(ten.amount == 10 && ten.unit == .minutes)
+    let ninety = ReminderTime.split(offsetMinutes: 90)   // not a clean hour multiple
+    #expect(ninety.amount == 90 && ninety.unit == .minutes)
+    let zero = ReminderTime.split(offsetMinutes: 0)      // "at start time" reads as minutes
+    #expect(zero.amount == 0 && zero.unit == .minutes)
+}
+
+@Test func reminderSplitClampsNegativeOffsetToZeroMinutes() {
+    // A block dragged earlier than its absolute reminder yields a negative
+    // derived offset; the editor should show "0 minutes", never a negative.
+    let negative = ReminderTime.split(offsetMinutes: -15)
+    #expect(negative.amount == 0 && negative.unit == .minutes)
+}
+
+@Test func reminderOffsetRoundTripsThroughSplit() {
+    for offset in [0, 5, 10, 15, 30, 45, 60, 90, 120, 180] {
+        let s = ReminderTime.split(offsetMinutes: offset)
+        #expect(ReminderTime.offsetMinutes(amount: s.amount, unit: s.unit) == offset)
+    }
+}
