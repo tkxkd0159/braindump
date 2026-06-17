@@ -49,6 +49,11 @@ public final class TaskService {
     public func delete(_ item: TaskItem) {
         if let day = item.day {
             day.top3ItemIDs.removeAll { $0 == item.id }
+            // No TaskItem→ScheduleEntry cascade exists, so deleting the item
+            // alone would only nullify `entry.item` and strand the block on the
+            // schedule grid. Sweep its placements too (mirrors moveToBacklog).
+            let entries = day.schedule.filter { $0.item?.id == item.id }
+            for entry in entries { context.delete(entry) }
         }
         context.delete(item)
         try? context.save()

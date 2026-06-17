@@ -410,6 +410,29 @@ import SwiftData
     #expect(today.top3ItemIDs.isEmpty)
 }
 
+// Deleting an item must remove it from EVERY place it appears — including the
+// schedule. There is no TaskItem→ScheduleEntry cascade rule, so without an
+// explicit sweep SwiftData merely nullifies `entry.item`, leaving an orphaned
+// "(deleted)" block on the grid. Assert the entry is gone, not just detached.
+@MainActor
+@Test func deleteRemovesScheduleEntries() throws {
+    let context = try InMemoryStore.makeContext()
+    let dayService = DayService(context: context)
+    let taskService = TaskService(context: context)
+    let scheduleService = ScheduleService(context: context)
+    let today = dayService.day(for: TestDate.at(2026, 5, 22))
+
+    let item = taskService.addBrainDumpItem(title: "Scheduled then deleted", on: today)
+    _ = try scheduleService.schedule(item, on: today, startMinute: 9 * 60, durationMinutes: 60)
+    #expect(today.schedule.count == 1)
+
+    taskService.delete(item)
+
+    #expect(today.schedule.isEmpty)
+    #expect(try context.fetch(FetchDescriptor<ScheduleEntry>()).isEmpty)
+    #expect(try context.fetch(FetchDescriptor<TaskItem>()).isEmpty)
+}
+
 @MainActor
 @Test func searchCompletedOnlyReturnsAllCompletedRegardlessOfDate() throws {
     let context = try InMemoryStore.makeContext()

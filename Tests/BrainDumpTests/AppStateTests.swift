@@ -471,6 +471,26 @@ import SwiftData
     #expect(inputs.first?.reminderMinuteOfDay == 500)
 }
 
+// Deleting a scheduled item must leave no reminder input behind — otherwise a
+// notification would still fire for a task the user removed. With the entry
+// swept, `scheduleReminderInputs` goes empty and the coordinator's reconcile
+// (see NotificationCoordinatorTests) cancels the now-stale pending reminder.
+@MainActor
+@Test func deletingScheduledItemDropsReminderInput() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let state = AppState(context: context, now: { TestDate.at(2026, 6, 12) }, defaults: defaults)
+    let day = DayService(context: context).day(for: state.todayDate)
+    let item = TaskService(context: context).addBrainDumpItem(title: "Reminded", on: day)
+    _ = try ScheduleService(context: context).schedule(
+        item, on: day, startMinute: 540, durationMinutes: 60, reminderMinuteOfDay: 525)
+    #expect(state.scheduleReminderInputs(for: day).count == 1)
+
+    TaskService(context: context).delete(item)
+
+    #expect(state.scheduleReminderInputs(for: day).isEmpty)
+}
+
 @MainActor
 @Test func clearAllDataDoesNotRecreateTodayViaNotificationRefresh() throws {
     // refreshAllNotifications must not re-insert today's Day after a wipe.

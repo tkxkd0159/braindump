@@ -33,19 +33,14 @@ public struct ScheduleBlockView: View {
                 Rectangle()
                     .fill(blockColor.opacity(0.65))
                     .frame(width: 4)
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .top) {
-                        Text(entry.item?.title ?? "(deleted)")
-                            .font(Theme.Font.bodyLgSemibold)
-                            .strikethrough(entry.isCompleted)
-                            .foregroundStyle(foregroundColor.opacity(entry.isCompleted ? 0.6 : 1))
-                            .lineLimit(2)
-                        Spacer()
-                        trailingControl
-                    }
-                    Text(timeRange)
-                        .font(Theme.Font.caption)
-                        .foregroundStyle(foregroundColor.opacity(0.7))
+                HStack(alignment: .top) {
+                    Text(entry.item?.title ?? "(deleted)")
+                        .font(Theme.Font.bodyLgSemibold)
+                        .strikethrough(entry.isCompleted)
+                        .foregroundStyle(foregroundColor.opacity(entry.isCompleted ? 0.6 : 1))
+                        .lineLimit(2)
+                    Spacer()
+                    trailingControl
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -99,9 +94,5 @@ public struct ScheduleBlockView: View {
             .disabled(isReadOnly)
             .help(entry.isCompleted ? "Mark incomplete" : "Mark complete")
         }
-    }
-
-    private var timeRange: String {
-        TimeFormat.range(startMinute: entry.startMinute, durationMinutes: entry.durationMinutes)
     }
 }

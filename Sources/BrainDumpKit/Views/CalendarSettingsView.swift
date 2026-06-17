@@ -195,22 +195,11 @@ struct EditFeedSheet: View {
             ColorField(selected: $colorIndex, customHex: $customColorHex)
             HStack(spacing: 12) {
                 Spacer()
-                Button(action: onCancel) {
-                    Text("Cancel")
-                        .font(Theme.Font.labelMd).padding(.horizontal, 18).frame(height: 34)
-                        .foregroundStyle(Theme.Palette.primary)
-                        .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                Button(action: save) {
-                    Text("Save")
-                        .font(Theme.Font.labelMd).padding(.horizontal, 18).frame(height: 34)
-                        .foregroundStyle(Theme.Palette.onPrimary).background(Theme.Palette.primary)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(!isValid)
+                Button("Cancel", action: onCancel)
+                    .buttonStyle(SecondaryActionStyle())
+                Button("Save", action: save)
+                    .buttonStyle(PrimaryActionStyle())
+                    .disabled(!isValid)
             }
         }
         .padding(24)
