@@ -115,7 +115,7 @@ public struct CalendarSettingsView: View {
             TextField("Name (e.g. Work)", text: $newName).textFieldStyle(.roundedBorder)
             TextField("https://calendar.google.com/calendar/ical/.../basic.ics", text: $newURL)
                 .textFieldStyle(.roundedBorder)
-            ColorSwatchRow(selected: $newColor, customHex: $newCustomColor)
+            ColorField(selected: $newColor, customHex: $newCustomColor)
             Button(action: addFeed) {
                 Text("Add Subscription")
                     .font(Theme.Font.labelMd).padding(.horizontal, 18).frame(height: 34)
@@ -192,7 +192,7 @@ struct EditFeedSheet: View {
             TextField("Name (e.g. Work)", text: $name).textFieldStyle(.roundedBorder)
             TextField("https://calendar.google.com/calendar/ical/.../basic.ics", text: $urlString)
                 .textFieldStyle(.roundedBorder)
-            ColorSwatchRow(selected: $colorIndex, customHex: $customColorHex)
+            ColorField(selected: $colorIndex, customHex: $customColorHex)
             HStack(spacing: 12) {
                 Spacer()
                 Button(action: onCancel) {

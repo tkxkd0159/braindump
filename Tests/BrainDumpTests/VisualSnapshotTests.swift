@@ -964,8 +964,8 @@ struct VisualSnapshotTests {
             view, size: NSSize(width: 700, height: 1400), filename: "feature-custom-color-blocks.png")
     }
 
-    /// TimeBlockSheet showing a custom color selected (ring on the ColorPicker
-    /// well) plus the absolute reminder time picker.
+    /// TimeBlockSheet showing a staged custom color (swatch on the Color field)
+    /// plus the "N minutes before" reminder offset input.
     @Test
     func captureTimeBlockSheetCustomColorAndReminder() throws {
         Fonts.registerIfNeeded()
@@ -973,7 +973,7 @@ struct VisualSnapshotTests {
             initialStartMinute: 9 * 60,
             initialDurationMinutes: 60,
             initialCustomColorHex: "#3A0CA3",
-            initialReminderMinuteOfDay: 8 * 60 + 45,
+            initialReminderOffsetMinutes: 30,
             dayDate: TestDate.at(2026, 6, 12),
             onConfirm: { _, _, _, _, _ in },
             onCancel: {}
@@ -981,6 +981,40 @@ struct VisualSnapshotTests {
         renderViaHostingWindow(
             view, size: NSSize(width: 460, height: 440),
             filename: "feature-timeblock-custom-color.png")
+    }
+
+    /// The custom color wheel popover (hue/saturation disc + brightness slider +
+    /// explicit Save) that replaces the preset swatches and the lingering native
+    /// NSColorPanel.
+    @Test
+    func captureColorWheelPopover() throws {
+        Fonts.registerIfNeeded()
+        let view = ColorWheelPopover(
+            draft: .constant(Color(hexString: "#3A0CA3") ?? .blue),
+            onCancel: {}, onSave: {})
+            .padding(24)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 300, height: 400),
+            filename: "feature-color-wheel-popover.png")
+    }
+
+    /// The Color field: preset palette dots + a rainbow "custom" circle that
+    /// opens the wheel. Top row has a preset selected (ring on a dot); bottom
+    /// row has a custom color active (ring on the rainbow opener).
+    @Test
+    func captureColorFieldRow() throws {
+        Fonts.registerIfNeeded()
+        let view = VStack(alignment: .leading, spacing: 24) {
+            ColorField(selected: .constant(2), customHex: .constant(nil))
+            ColorField(selected: .constant(0), customHex: .constant("#F2C14E"))
+        }
+        .frame(width: 380)
+        .padding(24)
+        .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 428, height: 200),
+            filename: "feature-color-field-row.png")
     }
 
     // MARK: - Rendering

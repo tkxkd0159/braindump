@@ -18,4 +18,12 @@ public extension Color {
             g: Double(resolved.greenComponent),
             b: Double(resolved.blueComponent))
     }
+
+    /// Hue/saturation/brightness components (each 0...1) used to seed the custom
+    /// color wheel from an existing color. Falls back to all-zero (black) when
+    /// the color can't be resolved into a device-RGB space.
+    var hsb: (hue: Double, saturation: Double, brightness: Double) {
+        guard let c = NSColor(self).usingColorSpace(.deviceRGB) else { return (0, 0, 0) }
+        return (Double(c.hueComponent), Double(c.saturationComponent), Double(c.brightnessComponent))
+    }
 }

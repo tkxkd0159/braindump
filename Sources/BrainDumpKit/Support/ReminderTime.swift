@@ -30,4 +30,30 @@ public enum ReminderTime {
             return "Choose a reminder time within the day."
         }
     }
+
+    // MARK: - "N minutes/hours before" offset input (Google-Calendar style)
+
+    /// The two lead-time units the offset input offers.
+    public enum Unit: String, CaseIterable, Sendable {
+        case minutes
+        case hours
+
+        /// Minutes contributed by one step of this unit.
+        public var minutesPerStep: Int { self == .hours ? 60 : 1 }
+    }
+
+    /// Convert an `(amount, unit)` lead time into minutes-before-start.
+    /// A negative amount clamps to 0 ("at start time").
+    public static func offsetMinutes(amount: Int, unit: Unit) -> Int {
+        max(0, amount) * unit.minutesPerStep
+    }
+
+    /// Decompose a minutes-before-start offset into the `(amount, unit)` the
+    /// editor displays: whole hours render as hours, everything else (and any
+    /// negative, which a dragged block can produce) as minutes.
+    public static func split(offsetMinutes: Int) -> (amount: Int, unit: Unit) {
+        guard offsetMinutes > 0 else { return (0, .minutes) }
+        if offsetMinutes % 60 == 0 { return (offsetMinutes / 60, .hours) }
+        return (offsetMinutes, .minutes)
+    }
 }
