@@ -194,13 +194,36 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
 }
 
 @MainActor
-@Test func setColorIndexPersists() throws {
+@Test func setColorIndexPersistsAndClearsCustomColor() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 60)
+    entry.customColorHex = "#111111"
+
+    scheduleService.setColorIndex(entry, 5)
+    #expect(entry.colorIndex == 5)
+    #expect(entry.customColorHex == nil) // picking a preset retires the custom override
+}
+
+@MainActor
+@Test func scheduleStoresCustomColor() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(
+        item, on: day, startMinute: 9 * 60, durationMinutes: 60, customColorHex: "#112233")
+    #expect(entry.customColorHex == "#112233")
+}
+
+@MainActor
+@Test func setCustomColorPersists() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
     let entry = try scheduleService.schedule(item, on: day, startMinute: 9 * 60, durationMinutes: 60)
 
-    scheduleService.setColorIndex(entry, 5)
-    #expect(entry.colorIndex == 5)
+    scheduleService.setCustomColor(entry, "#ABCDEF")
+    #expect(entry.customColorHex == "#ABCDEF")
+    scheduleService.setCustomColor(entry, nil)
+    #expect(entry.customColorHex == nil)
 }
 
 @MainActor
@@ -266,55 +289,57 @@ private func setupScheduleTest() throws -> (ModelContext, DayService, TaskServic
 }
 
 @MainActor
-@Test func scheduleStoresReminderOffset() throws {
+@Test func scheduleStoresAbsoluteReminder() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
     let entry = try scheduleService.schedule(
-        item, on: day, startMinute: 540, durationMinutes: 60, reminderOffsetMinutes: 15)
-    #expect(entry.reminderOffsetMinutes == 15)
+        item, on: day, startMinute: 540, durationMinutes: 60, reminderMinuteOfDay: 525)
+    #expect(entry.reminderMinuteOfDay == 525)
 }
 
 @MainActor
-@Test func scheduleDefaultsToNoReminderOffset() throws {
+@Test func scheduleDefaultsToNoReminder() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
     let entry = try scheduleService.schedule(item, on: day, startMinute: 540, durationMinutes: 60)
-    #expect(entry.reminderOffsetMinutes == nil)
+    #expect(entry.reminderMinuteOfDay == nil)
 }
 
 @MainActor
-@Test func rescheduleClearsReminderThatNoLongerFitsTheDay() throws {
+@Test func reschedulePreservesAbsoluteReminder() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
-    // 9:00 with a 1-hour lead is fine (08:00 is within the day).
+    // An absolute reminder is independent of placement — moving the block,
+    // even to 00:30, must not change or drop it.
     let entry = try scheduleService.schedule(
-        item, on: day, startMinute: 9 * 60, durationMinutes: 60, reminderOffsetMinutes: 60)
-    #expect(entry.reminderOffsetMinutes == 60)
-
-    // Move it to 00:30 — a 1-hour lead would fall on the previous day, so it's cleared.
+        item, on: day, startMinute: 9 * 60, durationMinutes: 60, reminderMinuteOfDay: 480)
     try scheduleService.reschedule(entry, startMinute: 30, durationMinutes: 60)
-    #expect(entry.reminderOffsetMinutes == nil)
+    #expect(entry.reminderMinuteOfDay == 480)
 }
 
 @MainActor
-@Test func rescheduleKeepsReminderThatStillFits() throws {
-    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
-    let item = taskService.addBrainDumpItem(title: "A", on: day)
-    let entry = try scheduleService.schedule(
-        item, on: day, startMinute: 9 * 60, durationMinutes: 60, reminderOffsetMinutes: 30)
-    try scheduleService.reschedule(entry, startMinute: 8 * 60, durationMinutes: 60)
-    #expect(entry.reminderOffsetMinutes == 30)
-}
-
-@MainActor
-@Test func setReminderOffsetUpdatesEntry() throws {
+@Test func setReminderMinuteOfDayUpdatesEntry() throws {
     let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
     let item = taskService.addBrainDumpItem(title: "A", on: day)
     let entry = try scheduleService.schedule(item, on: day, startMinute: 540, durationMinutes: 60)
 
-    scheduleService.setReminderOffset(entry, 30)
-    #expect(entry.reminderOffsetMinutes == 30)
-    scheduleService.setReminderOffset(entry, nil)
+    scheduleService.setReminderMinuteOfDay(entry, 500)
+    #expect(entry.reminderMinuteOfDay == 500)
+    scheduleService.setReminderMinuteOfDay(entry, nil)
+    #expect(entry.reminderMinuteOfDay == nil)
+}
+
+@MainActor
+@Test func setReminderMinuteOfDayRetiresLegacyOffset() throws {
+    let (_, _, taskService, scheduleService, day) = try setupScheduleTest()
+    let item = taskService.addBrainDumpItem(title: "A", on: day)
+    let entry = try scheduleService.schedule(item, on: day, startMinute: 540, durationMinutes: 60)
+    entry.reminderOffsetMinutes = 15 // legacy reminder
+
+    // Clearing the reminder must also drop the legacy offset, or the AppState
+    // bridge would resurrect it.
+    scheduleService.setReminderMinuteOfDay(entry, nil)
+    #expect(entry.reminderMinuteOfDay == nil)
     #expect(entry.reminderOffsetMinutes == nil)
 }
 

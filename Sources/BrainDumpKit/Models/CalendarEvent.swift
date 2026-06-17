@@ -11,6 +11,9 @@ public struct CalendarEvent: Codable, Identifiable, Equatable, Sendable {
     public var end: Date
     public var isAllDay: Bool
     public var colorIndex: Int
+    /// Arbitrary `#RRGGBB` color (mirrors the feed's custom color) overriding
+    /// `colorIndex` when non-nil. Optional so older disk caches decode to nil.
+    public var customColorHex: String?
 
     public init(
         id: String,
@@ -19,7 +22,8 @@ public struct CalendarEvent: Codable, Identifiable, Equatable, Sendable {
         start: Date,
         end: Date,
         isAllDay: Bool,
-        colorIndex: Int
+        colorIndex: Int,
+        customColorHex: String? = nil
     ) {
         self.id = id
         self.feedID = feedID
@@ -28,6 +32,7 @@ public struct CalendarEvent: Codable, Identifiable, Equatable, Sendable {
         self.end = end
         self.isAllDay = isAllDay
         self.colorIndex = colorIndex
+        self.customColorHex = customColorHex
     }
 
     /// True if `[start, end)` overlaps the local calendar day containing `date`.

@@ -58,6 +58,23 @@ public enum Theme {
             let safeIndex = max(0, min(foregrounds.count - 1, index))
             return foregrounds[safeIndex]
         }
+
+        /// Custom-aware block color: a parseable `customHex` wins over the preset
+        /// index; anything else falls back to the curated palette.
+        public static func color(at index: Int, customHex: String?) -> Color {
+            if let customHex, let custom = Color(hexString: customHex) { return custom }
+            return color(at: index)
+        }
+
+        /// Legible foreground for a custom-or-preset block color. For custom
+        /// colors the choice is luminance-based (dark text on light fills).
+        public static func foreground(at index: Int, customHex: String?) -> Color {
+            if let customHex, let rgb = HexColor.parse(customHex) {
+                return HexColor.isLight(r: rgb.r, g: rgb.g, b: rgb.b)
+                    ? Color(hex: 0x2A1F12) : Color(hex: 0xFFFFFF)
+            }
+            return foreground(at: index)
+        }
     }
 
     public enum Font {

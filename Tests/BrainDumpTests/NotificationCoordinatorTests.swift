@@ -4,8 +4,10 @@ import Testing
 
 @MainActor
 private func coordinatorReminderInput(id: UUID = UUID(), start: Int, offset: Int?) -> ReminderInput {
+    // `offset` is a convenience for these tests; the planner now takes an
+    // absolute minute-of-day, so convert (start − offset).
     ReminderInput(entryID: id, dayStart: TestDate.at(2026, 6, 12), startMinute: start,
-                  offsetMinutes: offset, isCompleted: false, title: "Task")
+                  reminderMinuteOfDay: offset.map { start - $0 }, isCompleted: false, title: "Task")
 }
 
 @MainActor @Test func coordinatorArmsDesiredScheduleReminders() async {

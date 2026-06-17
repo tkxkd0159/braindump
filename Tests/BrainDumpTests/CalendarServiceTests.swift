@@ -51,6 +51,17 @@ END:VEVENT
 }
 
 @MainActor
+@Test func materializedEventInheritsFeedCustomColor() async {
+    let url = "https://feed/a.ics"
+    let svc = makeService(
+        StubFetcher(byURL: [url: busyICS]),
+        feeds: [CalendarFeed(name: "Work", urlString: url, colorIndex: 1, customColorHex: "#445566")])
+    await svc.refresh()
+    let events = svc.events(on: TestDate.at(2026, 5, 22))
+    #expect(events.first?.customColorHex == "#445566")
+}
+
+@MainActor
 @Test func allDayEventsExcludedFromBusy() async {
     let ics = """
     BEGIN:VEVENT

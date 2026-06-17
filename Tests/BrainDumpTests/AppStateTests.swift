@@ -437,20 +437,38 @@ import SwiftData
 }
 
 @MainActor
-@Test func scheduleReminderInputsReflectEntries() throws {
+@Test func scheduleReminderInputsBridgeLegacyOffsetToAbsolute() throws {
     let context = try InMemoryStore.makeContext()
     let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
     let state = AppState(context: context, now: { TestDate.at(2026, 6, 12) }, defaults: defaults)
     let day = DayService(context: context).day(for: state.todayDate)
     let item = TaskService(context: context).addBrainDumpItem(title: "A", on: day)
-    _ = try ScheduleService(context: context).schedule(
-        item, on: day, startMinute: 540, durationMinutes: 60, reminderOffsetMinutes: 15)
+    let entry = try ScheduleService(context: context).schedule(
+        item, on: day, startMinute: 540, durationMinutes: 60)
+    // Simulate a reminder stored before the custom-time feature (legacy offset).
+    entry.reminderOffsetMinutes = 15
 
     let inputs = state.scheduleReminderInputs(for: day)
     #expect(inputs.count == 1)
-    #expect(inputs.first?.offsetMinutes == 15)
+    #expect(inputs.first?.reminderMinuteOfDay == 525) // 540 − 15
     #expect(inputs.first?.title == "A")
     #expect(inputs.first?.startMinute == 540)
+}
+
+@MainActor
+@Test func scheduleReminderInputsPreferAbsoluteOverLegacyOffset() throws {
+    let context = try InMemoryStore.makeContext()
+    let defaults = UserDefaults(suiteName: "BrainDumpTest.\(UUID().uuidString)")!
+    let state = AppState(context: context, now: { TestDate.at(2026, 6, 12) }, defaults: defaults)
+    let day = DayService(context: context).day(for: state.todayDate)
+    let item = TaskService(context: context).addBrainDumpItem(title: "A", on: day)
+    let entry = try ScheduleService(context: context).schedule(
+        item, on: day, startMinute: 540, durationMinutes: 60)
+    entry.reminderMinuteOfDay = 500
+    entry.reminderOffsetMinutes = 15 // stale legacy value must be ignored
+
+    let inputs = state.scheduleReminderInputs(for: day)
+    #expect(inputs.first?.reminderMinuteOfDay == 500)
 }
 
 @MainActor

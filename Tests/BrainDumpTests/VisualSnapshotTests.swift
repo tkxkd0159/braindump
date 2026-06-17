@@ -808,7 +808,7 @@ struct VisualSnapshotTests {
             initialDurationMinutes: 60,
             dayStartHour: state.dayStartHour,
             dayEndHour: state.dayEndHour,
-            onConfirm: { _, _, _, _ in },
+            onConfirm: { _, _, _, _, _ in },
             onCancel: {}
         )
         .environment(\.modelContext, context)
@@ -936,6 +936,51 @@ struct VisualSnapshotTests {
         renderViaHostingWindow(
             view, size: NSSize(width: 1000, height: 440),
             filename: "snapshot-date-header-alignment.png")
+    }
+
+    /// Custom-colored schedule blocks: a light custom fill must get dark text and
+    /// a dark custom fill white text, alongside a preset for comparison.
+    @Test
+    func captureScheduleSectionCustomColors() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let tasks = TaskService(context: context)
+        let sched = ScheduleService(context: context)
+        let a = tasks.addBrainDumpItem(title: "Light custom — dark text", on: day)
+        _ = try sched.schedule(a, on: day, startMinute: 9 * 60, durationMinutes: 60,
+                               customColorHex: "#F2C14E")
+        let b = tasks.addBrainDumpItem(title: "Dark custom — white text", on: day)
+        _ = try sched.schedule(b, on: day, startMinute: 11 * 60, durationMinutes: 60,
+                               customColorHex: "#3A0CA3")
+        let c = tasks.addBrainDumpItem(title: "Preset crimson", on: day)
+        _ = try sched.schedule(c, on: day, startMinute: 13 * 60, durationMinutes: 60, colorIndex: 1)
+
+        let view = ScheduleSection(day: day, isReadOnly: false)
+            .environment(\.modelContext, context)
+            .padding(24)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 700, height: 1400), filename: "feature-custom-color-blocks.png")
+    }
+
+    /// TimeBlockSheet showing a custom color selected (ring on the ColorPicker
+    /// well) plus the absolute reminder time picker.
+    @Test
+    func captureTimeBlockSheetCustomColorAndReminder() throws {
+        Fonts.registerIfNeeded()
+        let view = TimeBlockSheet(
+            initialStartMinute: 9 * 60,
+            initialDurationMinutes: 60,
+            initialCustomColorHex: "#3A0CA3",
+            initialReminderMinuteOfDay: 8 * 60 + 45,
+            dayDate: TestDate.at(2026, 6, 12),
+            onConfirm: { _, _, _, _, _ in },
+            onCancel: {}
+        )
+        renderViaHostingWindow(
+            view, size: NSSize(width: 460, height: 440),
+            filename: "feature-timeblock-custom-color.png")
     }
 
     // MARK: - Rendering

@@ -16,7 +16,8 @@ public final class ScheduleService {
         startMinute: Int,
         durationMinutes: Int,
         colorIndex: Int = 0,
-        reminderOffsetMinutes: Int? = nil,
+        customColorHex: String? = nil,
+        reminderMinuteOfDay: Int? = nil,
         additionalBusyRanges: [Range<Int>] = []
     ) throws -> ScheduleEntry {
         guard durationMinutes >= 15, startMinute >= 0, startMinute + durationMinutes <= 24 * 60 else {
@@ -33,7 +34,8 @@ public final class ScheduleService {
             startMinute: startMinute,
             durationMinutes: durationMinutes,
             colorIndex: colorIndex,
-            reminderOffsetMinutes: reminderOffsetMinutes,
+            customColorHex: customColorHex,
+            reminderMinuteOfDay: reminderMinuteOfDay,
             item: item,
             day: day
         )
@@ -65,11 +67,8 @@ public final class ScheduleService {
         }
         entry.startMinute = startMinute
         entry.durationMinutes = durationMinutes
-        // Drop a reminder that can no longer fire within the day after the move
-        // (e.g. a 1-hour lead on a block pushed to 00:30) so no stale offset lingers.
-        if !ReminderOffset.isValid(entry.reminderOffsetMinutes, startMinute: startMinute) {
-            entry.reminderOffsetMinutes = nil
-        }
+        // An absolute reminder is independent of placement, so moving the block
+        // deliberately leaves it untouched.
         try? context.save()
     }
 
@@ -84,14 +83,26 @@ public final class ScheduleService {
         try? context.save()
     }
 
+    /// Select a preset palette color. Clears any custom override so the preset
+    /// is what renders.
     public func setColorIndex(_ entry: ScheduleEntry, _ index: Int) {
         entry.colorIndex = max(0, min(Theme.BlockPalette.colors.count - 1, index))
+        entry.customColorHex = nil
         try? context.save()
     }
 
-    /// Set (or clear, with `nil`) the reminder lead time on a schedule entry.
-    public func setReminderOffset(_ entry: ScheduleEntry, _ offset: Int?) {
-        entry.reminderOffsetMinutes = offset
+    /// Set (or clear, with `nil`) an arbitrary custom color overriding the preset.
+    public func setCustomColor(_ entry: ScheduleEntry, _ hex: String?) {
+        entry.customColorHex = hex
+        try? context.save()
+    }
+
+    /// Set (or clear, with `nil`) the absolute reminder time on a schedule entry.
+    /// Editing the reminder also retires any legacy lead-time offset, so the
+    /// AppState bridge never resurrects an old reminder after this one is cleared.
+    public func setReminderMinuteOfDay(_ entry: ScheduleEntry, _ minuteOfDay: Int?) {
+        entry.reminderMinuteOfDay = minuteOfDay
+        entry.reminderOffsetMinutes = nil
         try? context.save()
     }
 }

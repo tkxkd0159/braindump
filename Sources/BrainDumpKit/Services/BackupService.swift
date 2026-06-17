@@ -25,6 +25,9 @@ public struct EntryDTO: Codable, Equatable {
     public var itemID: UUID?
     /// Added in backup v2; absent in v1 backups (decodes as nil).
     public var reminderOffsetMinutes: Int?
+    /// Added in backup v3; absent in v1/v2 backups (decode as nil).
+    public var customColorHex: String?
+    public var reminderMinuteOfDay: Int?
 }
 
 public struct DayDTO: Codable, Equatable {
@@ -42,7 +45,7 @@ public struct BackupSnapshot: Codable, Equatable {
 
 @MainActor
 public final class BackupService {
-    public static let currentVersion = 2
+    public static let currentVersion = 3
     private let context: ModelContext
 
     public init(context: ModelContext) { self.context = context }
@@ -101,7 +104,9 @@ public final class BackupService {
                 entry.id = entryDTO.id
                 entry.isCompleted = entryDTO.isCompleted
                 entry.completedAt = entryDTO.completedAt
+                entry.customColorHex = entryDTO.customColorHex
                 entry.reminderOffsetMinutes = entryDTO.reminderOffsetMinutes
+                entry.reminderMinuteOfDay = entryDTO.reminderMinuteOfDay
                 context.insert(entry)
             }
         }
@@ -131,7 +136,8 @@ public final class BackupService {
                         id: e.id, startMinute: e.startMinute,
                         durationMinutes: e.durationMinutes, isCompleted: e.isCompleted,
                         completedAt: e.completedAt, colorIndex: e.colorIndex, itemID: e.item?.id,
-                        reminderOffsetMinutes: e.reminderOffsetMinutes)
+                        reminderOffsetMinutes: e.reminderOffsetMinutes,
+                        customColorHex: e.customColorHex, reminderMinuteOfDay: e.reminderMinuteOfDay)
                 })
         }
         let backlogItems = ((try? context.fetch(

@@ -9,9 +9,16 @@ public final class ScheduleEntry {
     public var isCompleted: Bool = false
     public var completedAt: Date?
     public var colorIndex: Int = 0
-    /// Minutes-before-start to fire a reminder; `nil` means no reminder.
-    /// Added in schema V2 (optional, so existing stores migrate lightly).
+    /// Arbitrary `#RRGGBB` color overriding `colorIndex` when non-nil. Lets the
+    /// user pick any color beyond the curated palette. Added as an additive
+    /// optional (SwiftData lightweight migration).
+    public var customColorHex: String?
+    /// Legacy minutes-before-start reminder lead time (schema V2). Superseded by
+    /// `reminderMinuteOfDay`; retained so existing stored reminders keep firing.
     public var reminderOffsetMinutes: Int?
+    /// Absolute reminder time as a minute-of-day on the entry's day; `nil` means
+    /// no reminder. The custom time picker writes this.
+    public var reminderMinuteOfDay: Int?
     public var item: TaskItem?
     public var day: Day?
 
@@ -19,7 +26,9 @@ public final class ScheduleEntry {
         startMinute: Int,
         durationMinutes: Int,
         colorIndex: Int = 0,
+        customColorHex: String? = nil,
         reminderOffsetMinutes: Int? = nil,
+        reminderMinuteOfDay: Int? = nil,
         item: TaskItem? = nil,
         day: Day? = nil
     ) {
@@ -29,7 +38,9 @@ public final class ScheduleEntry {
         self.isCompleted = false
         self.completedAt = nil
         self.colorIndex = colorIndex
+        self.customColorHex = customColorHex
         self.reminderOffsetMinutes = reminderOffsetMinutes
+        self.reminderMinuteOfDay = reminderMinuteOfDay
         self.item = item
         self.day = day
     }

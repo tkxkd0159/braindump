@@ -37,8 +37,9 @@ public final class CalendarService {
 
     // MARK: Feed management
 
-    public func addFeed(name: String, urlString: String, colorIndex: Int) {
-        feeds.append(CalendarFeed(name: name, urlString: urlString, colorIndex: colorIndex))
+    public func addFeed(name: String, urlString: String, colorIndex: Int, customColorHex: String? = nil) {
+        feeds.append(CalendarFeed(
+            name: name, urlString: urlString, colorIndex: colorIndex, customColorHex: customColorHex))
         persistFeeds()
     }
 
@@ -168,7 +169,7 @@ public final class CalendarService {
         CalendarEvent(
             id: "\(feed.id.uuidString):\(uid):\(start.timeIntervalSinceReferenceDate.rounded())",
             feedID: feed.id, title: title, start: start, end: end,
-            isAllDay: isAllDay, colorIndex: feed.colorIndex)
+            isAllDay: isAllDay, colorIndex: feed.colorIndex, customColorHex: feed.customColorHex)
     }
 
     private static func describe(_ error: Error) -> String {
