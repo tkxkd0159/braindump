@@ -76,8 +76,9 @@ struct NotificationsSnapshotTests {
         let view = TimeBlockSheet(
             initialStartMinute: 9 * 60,
             initialDurationMinutes: 60,
-            initialReminderOffset: 15,
-            onConfirm: { _, _, _, _ in },
+            initialReminderMinuteOfDay: 8 * 60 + 45, // 15 min before a 9:00 block
+            dayDate: TestDate.at(2026, 6, 12),
+            onConfirm: { _, _, _, _, _ in },
             onCancel: {}
         )
         renderViaHostingWindow(
@@ -93,7 +94,7 @@ struct NotificationsSnapshotTests {
         let item = TaskService(context: context).addBrainDumpItem(
             title: "Finalize Manuscript", notes: "Sections 3 & 4.", tags: ["writing"], on: day)
         let entry = try ScheduleService(context: context).schedule(
-            item, on: day, startMinute: 9 * 60, durationMinutes: 60, reminderOffsetMinutes: 15)
+            item, on: day, startMinute: 9 * 60, durationMinutes: 60, reminderMinuteOfDay: 8 * 60 + 45)
         let focus = TaskDetailFocus(item: item, entry: entry, startInEditMode: true)
         let view = TaskDetailSheet(focus: focus, dismiss: {})
             .environment(\.modelContext, context)

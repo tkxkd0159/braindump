@@ -200,9 +200,14 @@ public final class AppState {
     public func scheduleReminderInputs(for day: Day) -> [ReminderInput] {
         let dayStart = day.date
         return day.schedule.map { entry in
-            ReminderInput(
+            // Prefer the absolute reminder; fall back to a legacy lead-time offset
+            // (start − offset) so reminders stored before the custom-time feature
+            // keep firing at the same moment.
+            let minuteOfDay = entry.reminderMinuteOfDay
+                ?? entry.reminderOffsetMinutes.map { entry.startMinute - $0 }
+            return ReminderInput(
                 entryID: entry.id, dayStart: dayStart, startMinute: entry.startMinute,
-                offsetMinutes: entry.reminderOffsetMinutes, isCompleted: entry.isCompleted,
+                reminderMinuteOfDay: minuteOfDay, isCompleted: entry.isCompleted,
                 title: entry.item?.title ?? "Scheduled task")
         }
     }

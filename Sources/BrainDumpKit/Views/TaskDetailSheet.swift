@@ -37,9 +37,11 @@ public struct TaskDetailSheet: View {
     @State private var startMinute: Int
     @State private var endMinute: Int
     @State private var colorIndex: Int
+    @State private var customColorHex: String?
     @State private var scheduleEnabled: Bool
-    @State private var reminderOffset: Int?
+    @State private var reminderMinuteOfDay: Int?
     @State private var errorText: String?
+    @State private var reminderAlert: String?
 
     /// Cached tag suggestions. Fetched once on first appearance — otherwise
     /// every keystroke in the title/notes fields would re-run `allTags()`
@@ -48,10 +50,13 @@ public struct TaskDetailSheet: View {
     @State private var didLoadTags: Bool = false
 
     private let startInEditModeAtInit: Bool
+    /// Injected clock for the "later than now" reminder check.
+    private let now: Date
 
-    public init(focus: TaskDetailFocus, dismiss: @escaping () -> Void) {
+    public init(focus: TaskDetailFocus, dismiss: @escaping () -> Void, now: Date = Date()) {
         self.focus = focus
         self.dismiss = dismiss
+        self.now = now
         switch focus {
         case .create, .createBacklog:
             _isEditing = State(initialValue: true)
@@ -61,8 +66,9 @@ public struct TaskDetailSheet: View {
             _startMinute = State(initialValue: 9 * 60)
             _endMinute = State(initialValue: 10 * 60)
             _colorIndex = State(initialValue: 0)
+            _customColorHex = State(initialValue: nil)
             _scheduleEnabled = State(initialValue: false)
-            _reminderOffset = State(initialValue: nil)
+            _reminderMinuteOfDay = State(initialValue: nil)
             startInEditModeAtInit = true
         case .edit(let item, let entry, let startInEditMode):
             _isEditing = State(initialValue: startInEditMode)
@@ -73,14 +79,18 @@ public struct TaskDetailSheet: View {
                 _startMinute = State(initialValue: entry.startMinute)
                 _endMinute = State(initialValue: entry.endMinute)
                 _colorIndex = State(initialValue: entry.colorIndex)
+                _customColorHex = State(initialValue: entry.customColorHex)
                 _scheduleEnabled = State(initialValue: true)
-                _reminderOffset = State(initialValue: entry.reminderOffsetMinutes)
+                // Show a legacy lead-time reminder as its absolute time (start − offset).
+                _reminderMinuteOfDay = State(initialValue:
+                    entry.reminderMinuteOfDay ?? entry.reminderOffsetMinutes.map { entry.startMinute - $0 })
             } else {
                 _startMinute = State(initialValue: 9 * 60)
                 _endMinute = State(initialValue: 10 * 60)
                 _colorIndex = State(initialValue: 0)
+                _customColorHex = State(initialValue: nil)
                 _scheduleEnabled = State(initialValue: false)
-                _reminderOffset = State(initialValue: nil)
+                _reminderMinuteOfDay = State(initialValue: nil)
             }
             startInEditModeAtInit = startInEditMode
         }
@@ -132,6 +142,14 @@ public struct TaskDetailSheet: View {
             cachedKnownTags = TaskService(context: context).allTags()
             didLoadTags = true
         }
+        .alert("Reminder", isPresented: Binding(
+            get: { reminderAlert != nil },
+            set: { if !$0 { reminderAlert = nil } })
+        ) {
+            Button("OK", role: .cancel) { reminderAlert = nil }
+        } message: {
+            Text(reminderAlert ?? "")
+        }
     }
 
     // MARK: - Edit mode
@@ -174,8 +192,8 @@ public struct TaskDetailSheet: View {
                     startMinute: $startMinute,
                     endMinute: $endMinute
                 )
-                ColorSwatchRow(selected: $colorIndex)
-                reminderPickerRow
+                ColorSwatchRow(selected: $colorIndex, customHex: $customColorHex)
+                reminderRow
             }
         } else {
             VStack(alignment: .leading, spacing: 10) {
@@ -190,35 +208,31 @@ public struct TaskDetailSheet: View {
                         startMinute: $startMinute,
                         endMinute: $endMinute
                     )
-                    ColorSwatchRow(selected: $colorIndex)
-                    reminderPickerRow
+                    ColorSwatchRow(selected: $colorIndex, customHex: $customColorHex)
+                    reminderRow
                 }
             }
         }
     }
 
-    private var reminderPickerRow: some View {
-        HStack(spacing: 12) {
-            Text("Reminder")
-                .font(Theme.Font.bodyMd)
-                .foregroundStyle(Theme.Palette.onSurface)
-            Spacer(minLength: 0)
-            Picker("", selection: $reminderOffset) {
-                Text("None").tag(Int?.none)
-                ForEach(ReminderOffset.validPresets(startMinute: TimeRangePicker.snap(minute: startMinute)), id: \.self) { offset in
-                    Text(ReminderOffset.label(offset)).tag(Int?.some(offset))
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .fixedSize()
-        }
-        .onChange(of: startMinute) { _, newStart in
-            // Keep the reminder within the day if the start moves earlier.
-            if !ReminderOffset.isValid(reminderOffset, startMinute: TimeRangePicker.snap(minute: newStart)) {
-                reminderOffset = nil
-            }
-        }
+    private var reminderRow: some View {
+        ReminderTimeRow(
+            minuteOfDay: $reminderMinuteOfDay,
+            dayDate: reminderDayDate,
+            defaultMinute: TimeRangePicker.snap(minute: startMinute))
+    }
+
+    /// Start-of-day anchor for the reminder picker — the scheduled item's day.
+    private var reminderDayDate: Date {
+        focusDay?.date ?? Date().startOfLocalDay()
+    }
+
+    /// Enforce "within the day, later than now"; surface an alert otherwise.
+    private func validateReminder(dayStart: Date) -> Bool {
+        guard let minuteOfDay = reminderMinuteOfDay else { return true }
+        let result = ReminderTime.validate(minuteOfDay: minuteOfDay, dayStart: dayStart, now: now)
+        reminderAlert = ReminderTime.alertMessage(for: result)
+        return reminderAlert == nil
     }
 
     private var titleField: some View {
@@ -303,8 +317,13 @@ public struct TaskDetailSheet: View {
             startMinute = entry.startMinute
             endMinute = entry.endMinute
             colorIndex = entry.colorIndex
+            customColorHex = entry.customColorHex
+            reminderMinuteOfDay = entry.reminderMinuteOfDay
+                ?? entry.reminderOffsetMinutes.map { entry.startMinute - $0 }
             scheduleEnabled = true
         } else {
+            customColorHex = nil
+            reminderMinuteOfDay = nil
             scheduleEnabled = false
         }
         errorText = nil
@@ -364,18 +383,18 @@ public struct TaskDetailSheet: View {
                 return
             }
             let duration = end - start
+            guard validateReminder(dayStart: day.date) else { return }
             do {
                 if let entry {
                     let timeChanged = entry.startMinute != start || entry.durationMinutes != duration
                     if timeChanged {
                         try scheduleService.reschedule(entry, startMinute: start, durationMinutes: duration)
                     }
-                    if entry.colorIndex != colorIndex {
-                        scheduleService.setColorIndex(entry, colorIndex)
+                    if entry.colorIndex != colorIndex || entry.customColorHex != customColorHex {
+                        scheduleService.setColorIndex(entry, colorIndex) // clears any custom
+                        if let customColorHex { scheduleService.setCustomColor(entry, customColorHex) }
                     }
-                    if entry.reminderOffsetMinutes != reminderOffset {
-                        scheduleService.setReminderOffset(entry, reminderOffset)
-                    }
+                    scheduleService.setReminderMinuteOfDay(entry, reminderMinuteOfDay)
                 } else {
                     _ = try scheduleService.schedule(
                         item,
@@ -383,7 +402,8 @@ public struct TaskDetailSheet: View {
                         startMinute: start,
                         durationMinutes: duration,
                         colorIndex: colorIndex,
-                        reminderOffsetMinutes: reminderOffset
+                        customColorHex: customColorHex,
+                        reminderMinuteOfDay: reminderMinuteOfDay
                     )
                 }
             } catch TodoError.scheduleConflict {
@@ -432,7 +452,7 @@ public struct TaskDetailSheet: View {
             if let entry = focusEntry {
                 HStack(spacing: 10) {
                     Rectangle()
-                        .fill(Theme.BlockPalette.color(at: entry.colorIndex))
+                        .fill(Theme.BlockPalette.color(at: entry.colorIndex, customHex: entry.customColorHex))
                         .frame(width: 12, height: 12)
                     Text(
                         TimeFormat.range(

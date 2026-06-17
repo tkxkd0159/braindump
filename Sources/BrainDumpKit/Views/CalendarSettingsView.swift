@@ -7,6 +7,7 @@ public struct CalendarSettingsView: View {
     @State private var newName: String = ""
     @State private var newURL: String = ""
     @State private var newColor: Int = 0
+    @State private var newCustomColor: String?
     @State private var pendingDeletion: CalendarFeed?
     @State private var editingFeed: CalendarFeed?
 
@@ -72,7 +73,7 @@ public struct CalendarSettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(calendar.feeds) { feed in
                 HStack(spacing: 12) {
-                    Circle().fill(Theme.BlockPalette.color(at: feed.colorIndex)).frame(width: 16, height: 16)
+                    Circle().fill(Theme.BlockPalette.color(at: feed.colorIndex, customHex: feed.customColorHex)).frame(width: 16, height: 16)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(feed.name.isEmpty ? "(unnamed)" : feed.name)
                             .font(Theme.Font.labelMd).foregroundStyle(Theme.Palette.onSurface)
@@ -114,7 +115,7 @@ public struct CalendarSettingsView: View {
             TextField("Name (e.g. Work)", text: $newName).textFieldStyle(.roundedBorder)
             TextField("https://calendar.google.com/calendar/ical/.../basic.ics", text: $newURL)
                 .textFieldStyle(.roundedBorder)
-            ColorSwatchRow(selected: $newColor)
+            ColorSwatchRow(selected: $newColor, customHex: $newCustomColor)
             Button(action: addFeed) {
                 Text("Add Subscription")
                     .font(Theme.Font.labelMd).padding(.horizontal, 18).frame(height: 34)
@@ -148,8 +149,10 @@ public struct CalendarSettingsView: View {
         let name = newName.trimmingCharacters(in: .whitespaces)
         let url = newURL.trimmingCharacters(in: .whitespaces)
         guard URL(string: url)?.scheme != nil else { return }
-        calendar.addFeed(name: name.isEmpty ? "Calendar" : name, urlString: url, colorIndex: newColor)
-        newName = ""; newURL = ""; newColor = 0
+        calendar.addFeed(
+            name: name.isEmpty ? "Calendar" : name, urlString: url,
+            colorIndex: newColor, customColorHex: newCustomColor)
+        newName = ""; newURL = ""; newColor = 0; newCustomColor = nil
         Task { await calendar.refresh() }
     }
 }
@@ -165,6 +168,7 @@ struct EditFeedSheet: View {
     @State private var name: String
     @State private var urlString: String
     @State private var colorIndex: Int
+    @State private var customColorHex: String?
 
     init(feed: CalendarFeed, onSave: @escaping (CalendarFeed) -> Void, onCancel: @escaping () -> Void) {
         self.feed = feed
@@ -173,6 +177,7 @@ struct EditFeedSheet: View {
         _name = State(initialValue: feed.name)
         _urlString = State(initialValue: feed.urlString)
         _colorIndex = State(initialValue: feed.colorIndex)
+        _customColorHex = State(initialValue: feed.customColorHex)
     }
 
     private var trimmedURL: String { urlString.trimmingCharacters(in: .whitespaces) }
@@ -187,7 +192,7 @@ struct EditFeedSheet: View {
             TextField("Name (e.g. Work)", text: $name).textFieldStyle(.roundedBorder)
             TextField("https://calendar.google.com/calendar/ical/.../basic.ics", text: $urlString)
                 .textFieldStyle(.roundedBorder)
-            ColorSwatchRow(selected: $colorIndex)
+            ColorSwatchRow(selected: $colorIndex, customHex: $customColorHex)
             HStack(spacing: 12) {
                 Spacer()
                 Button(action: onCancel) {
@@ -219,6 +224,7 @@ struct EditFeedSheet: View {
         updated.name = trimmedName.isEmpty ? "Calendar" : trimmedName
         updated.urlString = trimmedURL
         updated.colorIndex = colorIndex
+        updated.customColorHex = customColorHex
         onSave(updated)
     }
 }

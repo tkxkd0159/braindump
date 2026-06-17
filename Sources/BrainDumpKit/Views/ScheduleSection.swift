@@ -90,8 +90,9 @@ public struct ScheduleSection: View {
                     initialDurationMinutes: 60,
                     dayStartHour: dayStartHour,
                     dayEndHour: dayEndHour,
-                    onConfirm: { startMinute, durationMinutes, colorIndex, reminderOffset in
-                        confirmSchedule(itemID: drop.itemID, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex, reminderOffsetMinutes: reminderOffset)
+                    dayDate: day.date,
+                    onConfirm: { startMinute, durationMinutes, colorIndex, customColorHex, reminderMinuteOfDay in
+                        confirmSchedule(itemID: drop.itemID, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex, customColorHex: customColorHex, reminderMinuteOfDay: reminderMinuteOfDay)
                     },
                     onCancel: { pending = nil }
                 )
@@ -259,14 +260,14 @@ public struct ScheduleSection: View {
         }
     }
 
-    private func confirmSchedule(itemID: UUID, startMinute: Int, durationMinutes: Int, colorIndex: Int, reminderOffsetMinutes: Int?) {
+    private func confirmSchedule(itemID: UUID, startMinute: Int, durationMinutes: Int, colorIndex: Int, customColorHex: String?, reminderMinuteOfDay: Int?) {
         defer { pending = nil }
         guard let item = day.items.first(where: { $0.id == itemID }) else {
             errorText = "Item not on this day"
             return
         }
         do {
-            _ = try scheduleService.schedule(item, on: day, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex, reminderOffsetMinutes: reminderOffsetMinutes, additionalBusyRanges: calendarBusyRanges)
+            _ = try scheduleService.schedule(item, on: day, startMinute: startMinute, durationMinutes: durationMinutes, colorIndex: colorIndex, customColorHex: customColorHex, reminderMinuteOfDay: reminderMinuteOfDay, additionalBusyRanges: calendarBusyRanges)
             errorText = nil
             onScheduleChanged()
         } catch TodoError.scheduleConflict {

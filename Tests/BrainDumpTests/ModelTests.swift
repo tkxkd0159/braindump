@@ -33,6 +33,37 @@ import SwiftData
 }
 
 @MainActor
+@Test func scheduleEntryPersistsCustomColorAndAbsoluteReminder() throws {
+    let context = try InMemoryStore.makeContext()
+    let day = Day(date: TestDate.at(2026, 6, 17))
+    let item = TaskItem(title: "Block")
+    item.day = day
+    let entry = ScheduleEntry(
+        startMinute: 540, durationMinutes: 60, colorIndex: 2,
+        customColorHex: "#1A2B3C", reminderMinuteOfDay: 525, item: item, day: day)
+    context.insert(day)
+    context.insert(item)
+    context.insert(entry)
+    try context.save()
+
+    let fetched = try #require(context.fetch(FetchDescriptor<ScheduleEntry>()).first)
+    #expect(fetched.customColorHex == "#1A2B3C")
+    #expect(fetched.reminderMinuteOfDay == 525)
+    #expect(fetched.reminderOffsetMinutes == nil) // legacy column untouched for new entries
+}
+
+@MainActor
+@Test func scheduleEntryDefaultsHaveNoCustomColorOrAbsoluteReminder() throws {
+    let context = try InMemoryStore.makeContext()
+    let entry = ScheduleEntry(startMinute: 0, durationMinutes: 60)
+    context.insert(entry)
+    try context.save()
+    let fetched = try #require(context.fetch(FetchDescriptor<ScheduleEntry>()).first)
+    #expect(fetched.customColorHex == nil)
+    #expect(fetched.reminderMinuteOfDay == nil)
+}
+
+@MainActor
 @Test func startOfDayNormalization() throws {
     let cal = Calendar.current
     let mid = DateComponents(calendar: cal, year: 2026, month: 5, day: 22, hour: 14, minute: 30).date!

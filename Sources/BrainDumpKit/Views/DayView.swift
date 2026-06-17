@@ -76,11 +76,13 @@ public struct DayView: View {
                     initialDurationMinutes: request.durationMinutes,
                     dayStartHour: state.dayStartHour,
                     dayEndHour: state.dayEndHour,
-                    onConfirm: { startMinute, durationMinutes, colorIndex, reminderOffset in
+                    dayDate: day.date,
+                    onConfirm: { startMinute, durationMinutes, colorIndex, customColorHex, reminderMinuteOfDay in
                         confirmSchedule(
                             day: day, itemID: request.itemID, startMinute: startMinute,
                             durationMinutes: durationMinutes, colorIndex: colorIndex,
-                            reminderOffsetMinutes: reminderOffset, additionalBusyRanges: calendarBusy)
+                            customColorHex: customColorHex, reminderMinuteOfDay: reminderMinuteOfDay,
+                            additionalBusyRanges: calendarBusy)
                     },
                     onCancel: { pendingSchedule = nil }
                 )
@@ -106,7 +108,7 @@ public struct DayView: View {
 
     private func confirmSchedule(
         day: Day, itemID: UUID, startMinute: Int, durationMinutes: Int, colorIndex: Int,
-        reminderOffsetMinutes: Int?, additionalBusyRanges: [Range<Int>] = []
+        customColorHex: String?, reminderMinuteOfDay: Int?, additionalBusyRanges: [Range<Int>] = []
     ) {
         defer { pendingSchedule = nil }
         guard let item = day.items.first(where: { $0.id == itemID }) else {
@@ -116,8 +118,8 @@ public struct DayView: View {
         do {
             _ = try ScheduleService(context: context).schedule(
                 item, on: day, startMinute: startMinute, durationMinutes: durationMinutes,
-                colorIndex: colorIndex, reminderOffsetMinutes: reminderOffsetMinutes,
-                additionalBusyRanges: additionalBusyRanges)
+                colorIndex: colorIndex, customColorHex: customColorHex,
+                reminderMinuteOfDay: reminderMinuteOfDay, additionalBusyRanges: additionalBusyRanges)
             scheduleError = nil
             state.syncScheduleNotifications(for: day)
         } catch TodoError.scheduleConflict {

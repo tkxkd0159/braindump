@@ -58,11 +58,11 @@ public struct ScheduleBlockView: View {
     }
 
     private var blockColor: Color {
-        Theme.BlockPalette.color(at: entry.colorIndex)
+        Theme.BlockPalette.color(at: entry.colorIndex, customHex: entry.customColorHex)
     }
 
     private var foregroundColor: Color {
-        Theme.BlockPalette.foreground(at: entry.colorIndex)
+        Theme.BlockPalette.foreground(at: entry.colorIndex, customHex: entry.customColorHex)
     }
 
     @ViewBuilder

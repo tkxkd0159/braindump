@@ -12,7 +12,7 @@ public struct AllDayEventBar: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(events) { event in
-                    let accent = Theme.BlockPalette.color(at: event.colorIndex)
+                    let accent = Theme.BlockPalette.color(at: event.colorIndex, customHex: event.customColorHex)
                     HStack(spacing: 6) {
                         Circle().fill(accent.opacity(0.8)).frame(width: 8, height: 8)
                         Text(event.title.isEmpty ? "(all-day)" : event.title)

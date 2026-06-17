@@ -33,3 +33,25 @@ private func ev(_ start: Date, _ end: Date, allDay: Bool = false) -> CalendarEve
     #expect(e.intersects(TestDate.at(2026, 5, 22)))
     #expect(!e.intersects(TestDate.at(2026, 5, 23)))
 }
+
+@MainActor
+@Test func calendarEventCarriesCustomColorThroughCodable() throws {
+    let event = CalendarEvent(
+        id: "x", feedID: UUID(), title: "T",
+        start: TestDate.at(2026, 5, 22, hour: 9), end: TestDate.at(2026, 5, 22, hour: 10),
+        isAllDay: false, colorIndex: 1, customColorHex: "#123456")
+    let data = try JSONEncoder().encode(event)
+    let decoded = try JSONDecoder().decode(CalendarEvent.self, from: data)
+    #expect(decoded.customColorHex == "#123456")
+}
+
+@MainActor
+@Test func calendarEventDecodesLegacyJSONWithoutCustomColorAsNil() throws {
+    let legacy = """
+    {"id":"x","feedID":"\(UUID().uuidString)","title":"T",
+     "start":0,"end":3600,"isAllDay":false,"colorIndex":3}
+    """.data(using: .utf8)!
+    let decoded = try JSONDecoder().decode(CalendarEvent.self, from: legacy)
+    #expect(decoded.colorIndex == 3)
+    #expect(decoded.customColorHex == nil)
+}

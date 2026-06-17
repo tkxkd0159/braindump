@@ -7,7 +7,7 @@ public struct CalendarEventBlockView: View {
 
     public init(event: CalendarEvent) { self.event = event }
 
-    private var accent: Color { Theme.BlockPalette.color(at: event.colorIndex) }
+    private var accent: Color { Theme.BlockPalette.color(at: event.colorIndex, customHex: event.customColorHex) }
 
     public var body: some View {
         HStack(alignment: .top, spacing: 0) {
