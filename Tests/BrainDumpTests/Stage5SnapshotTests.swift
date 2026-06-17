@@ -6,15 +6,18 @@ import Testing
 
 @testable import BrainDumpKit
 
-/// In-process rendering of the Stage 5 changes (inline task contents,
+/// In-process rendering of the Stage 5 changes (brain-dump card contents,
 /// settings sheet, minute-precision schedule). These complement the
 /// live-app screenshot verification — useful when the live window can't be
 /// captured (multi-display setups where the window lands off the recordable
 /// region).
 @MainActor
 struct Stage5SnapshotTests {
+    /// Brain-dump cards no longer fold/unfold inline: tapping one opens the
+    /// detail modal. The card itself surfaces the tag and (when scheduled) the
+    /// time range; the notes body shows only in the modal.
     @Test
-    func captureExpandedTaskCard() throws {
+    func captureBrainDumpCardsShowTagAndTimeRange() throws {
         Fonts.registerIfNeeded()
         let (context, day) = try seed()
         let view = BrainDumpSection(day: day, isReadOnly: false, openDetail: nil)

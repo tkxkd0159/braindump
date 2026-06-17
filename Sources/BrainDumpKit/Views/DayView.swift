@@ -50,7 +50,8 @@ public struct DayView: View {
                         onSchedule: onSchedule)
                     BrainDumpSection(
                         day: day, isReadOnly: state.isPast, openDetail: openDetail,
-                        onSchedule: onSchedule
+                        onSchedule: onSchedule,
+                        onScheduleChanged: { state.syncScheduleNotifications(for: day) }
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }

@@ -143,30 +143,3 @@ public struct TimeBlockSheet: View {
         return reminderAlert == nil
     }
 }
-
-private struct PrimaryActionStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(Theme.Font.labelMd)
-            .tracking(0.5)
-            .padding(.horizontal, 18)
-            .frame(height: 34)
-            .foregroundStyle(Theme.Palette.onPrimary)
-            .background(Theme.Palette.primary)
-            .opacity(configuration.isPressed ? 0.85 : 1)
-    }
-}
-
-private struct SecondaryActionStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(Theme.Font.labelMd)
-            .tracking(0.5)
-            .padding(.horizontal, 18)
-            .frame(height: 34)
-            .foregroundStyle(Theme.Palette.primary)
-            .background(Theme.Palette.surfaceContainerLowest)
-            .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
-            .opacity(configuration.isPressed ? 0.85 : 1)
-    }
-}

@@ -169,6 +169,37 @@ struct VisualSnapshotTests {
             view, size: NSSize(width: 520, height: 900), filename: "snapshot-left-column.png")
     }
 
+    /// Brain Dump cards after the detail-modal switch: a scheduled item shows
+    /// its time range (clock + "9:00 AM — 10:30 AM"), and notes live ONLY in the
+    /// detail modal now — they must NOT appear inline on the card the way the old
+    /// fold/unfold revealed them. Inspect the PNG: the manuscript card shows the
+    /// range and its tag, but never the body of its notes.
+    @Test
+    func captureBrainDumpSectionShowsScheduledTimeRange() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        let scheduleService = ScheduleService(context: context)
+        let scheduled = taskService.addBrainDumpItem(
+            title: "Finalize Manuscript Revision",
+            notes: "These notes should appear only in the detail modal, never inline on the card.",
+            tags: ["writing"],
+            on: day)
+        _ = try scheduleService.schedule(
+            scheduled, on: day, startMinute: 9 * 60, durationMinutes: 90)
+        _ = taskService.addBrainDumpItem(title: "Research Zotero plugin updates", on: day)
+
+        let view = BrainDumpSection(day: day, isReadOnly: false)
+            .environment(\.modelContext, context)
+            .frame(width: 420, height: 320)
+            .padding(24)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 468, height: 368),
+            filename: "snapshot-braindump-scheduled-range.png")
+    }
+
     @Test
     func captureFullAppShell() throws {
         Fonts.registerIfNeeded()
@@ -1043,6 +1074,45 @@ struct VisualSnapshotTests {
     }
 
     // MARK: - Rendering
+
+    /// Action-button hover: a monochrome inversion — the black filled button
+    /// flips to white, the white outlined button flips to black (no blue tint).
+    /// Offscreen renders can't move a pointer, so this lays out resting (left) vs
+    /// hovered (right) using the same `ActionButtonKind` functions the live style
+    /// calls.
+    @Test
+    func captureActionButtonHoverStates() throws {
+        Fonts.registerIfNeeded()
+        func swatch(_ label: String, kind: ActionButtonKind, hovered: Bool) -> some View {
+            Text(label)
+                .font(Theme.Font.labelMd)
+                .tracking(0.5)
+                .padding(.horizontal, 18)
+                .frame(height: 34)
+                .foregroundStyle(kind.foreground(hovered: hovered))
+                .background(kind.background(hovered: hovered))
+                .overlay { Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1) }
+        }
+        let view = VStack(alignment: .leading, spacing: 20) {
+            Text("RESTING   /   HOVERED")
+                .font(Theme.Font.tinyLabel)
+                .tracking(1.5)
+                .foregroundStyle(Theme.Palette.onSurfaceVariant)
+            HStack(spacing: 20) {
+                swatch("Cancel", kind: .secondary, hovered: false)
+                swatch("Cancel", kind: .secondary, hovered: true)
+            }
+            HStack(spacing: 20) {
+                swatch("Done", kind: .primary, hovered: false)
+                swatch("Done", kind: .primary, hovered: true)
+            }
+        }
+        .padding(32)
+        .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view, size: NSSize(width: 380, height: 220),
+            filename: "snapshot-action-button-hover.png")
+    }
 
     private func renderViaHostingWindow<V: View>(
         _ view: V, size: NSSize, filename: String, topSafeAreaInset: CGFloat = 0

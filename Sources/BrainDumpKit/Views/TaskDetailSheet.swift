@@ -284,20 +284,10 @@ public struct TaskDetailSheet: View {
         HStack(spacing: 12) {
             Spacer()
             Button("Cancel", action: cancelEdit)
-                .buttonStyle(.plain)
-                .font(Theme.Font.labelMd)
-                .padding(.horizontal, 18)
-                .frame(height: 34)
-                .foregroundStyle(Theme.Palette.primary)
-                .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
+                .buttonStyle(SecondaryActionStyle())
                 .keyboardShortcut(.cancelAction)
             Button(isCreateMode ? "Add" : "Done", action: commit)
-                .buttonStyle(.plain)
-                .font(Theme.Font.labelMd)
-                .padding(.horizontal, 18)
-                .frame(height: 34)
-                .foregroundStyle(Theme.Palette.onPrimary)
-                .background(Theme.Palette.primary)
+                .buttonStyle(PrimaryActionStyle())
                 .keyboardShortcut(.defaultAction)
         }
     }
@@ -502,12 +492,7 @@ public struct TaskDetailSheet: View {
         HStack {
             Spacer()
             Button("Close", action: dismiss)
-                .buttonStyle(.plain)
-                .font(Theme.Font.labelMd)
-                .padding(.horizontal, 18)
-                .frame(height: 30)
-                .foregroundStyle(Theme.Palette.primary)
-                .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
+                .buttonStyle(SecondaryActionStyle())
                 .keyboardShortcut(.cancelAction)
         }
     }

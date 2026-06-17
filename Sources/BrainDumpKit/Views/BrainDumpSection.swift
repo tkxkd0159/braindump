@@ -7,13 +7,15 @@ public struct BrainDumpSection: View {
     let isReadOnly: Bool
     let openDetail: ((TaskDetailFocus) -> Void)?
     let onSchedule: ((TaskItem) -> Void)?
+    /// Called after an operation that may remove the item's schedule entries
+    /// (delete / move-to-backlog) so the owner can cancel any orphaned reminder.
+    let onScheduleChanged: () -> Void
 
     @State private var newTitle: String = ""
     @State private var newNotes: String = ""
     @State private var newTagDraft: String = ""
     @State private var newTags: [String] = []
     @State private var hoveredID: UUID?
-    @State private var expandedIDs: Set<UUID> = []
     @State private var escalateError: String?
     @State private var pendingSwap: PendingSwap?
     @FocusState private var addFocus: AddFieldFocus?
@@ -29,12 +31,14 @@ public struct BrainDumpSection: View {
         day: Day,
         isReadOnly: Bool,
         openDetail: ((TaskDetailFocus) -> Void)? = nil,
-        onSchedule: ((TaskItem) -> Void)? = nil
+        onSchedule: ((TaskItem) -> Void)? = nil,
+        onScheduleChanged: @escaping () -> Void = {}
     ) {
         self.day = day
         self.isReadOnly = isReadOnly
         self.openDetail = openDetail
         self.onSchedule = onSchedule
+        self.onScheduleChanged = onScheduleChanged
     }
 
     private var taskService: TaskService { TaskService(context: context) }
@@ -128,20 +132,15 @@ public struct BrainDumpSection: View {
         let scheduled = scheduleEntry(for: item)
         let completed = isCompleted(item)
         let hovered = hoveredID == item.id
-        let expanded = expandedIDs.contains(item.id)
-        let hasDetails = !item.notes.isEmpty || !item.tags.isEmpty
 
         return HStack(alignment: .top, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
+                if let scheduled {
+                    scheduledTimeRange(for: scheduled)
+                }
                 titleView(for: item, completed: completed)
                 if !item.tags.isEmpty {
                     TagChipRow(tags: item.tags)
-                }
-                if expanded && !item.notes.isEmpty {
-                    Text(NoteText.linkified(item.notes))
-                        .font(Theme.Font.bodyMd)
-                        .foregroundStyle(Theme.Palette.onSurfaceVariant)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer(minLength: 0)
@@ -153,6 +152,7 @@ public struct BrainDumpSection: View {
                         visible: hovered
                     ) {
                         taskService.delete(item)
+                        onScheduleChanged()
                     }
                     IconActionButton(
                         systemName: "pencil",
@@ -166,7 +166,7 @@ public struct BrainDumpSection: View {
             }
         }
         .padding(14)
-        .background(rowBackground(scheduled: scheduled, expanded: expanded))
+        .background(rowBackground(scheduled: scheduled))
         .overlay(
             Rectangle()
                 .strokeBorder(
@@ -178,12 +178,7 @@ public struct BrainDumpSection: View {
         .onHover { inside in hoveredID = inside ? item.id : (hoveredID == item.id ? nil : hoveredID)
         }
         .onTapGesture {
-            guard hasDetails else { return }
-            if expanded {
-                expandedIDs.remove(item.id)
-            } else {
-                expandedIDs.insert(item.id)
-            }
+            openDetail?(TaskDetailFocus(item: item, entry: scheduled, startInEditMode: false))
         }
         .draggable(TaskItemDragPayload(id: item.id))
         .contextMenu {
@@ -204,15 +199,32 @@ public struct BrainDumpSection: View {
                 }
                 Button("Move to Backlog") {
                     BacklogService(context: context).moveToBacklog(item)
+                    onScheduleChanged()
                 }
             }
         }
     }
 
-    private func rowBackground(scheduled: ScheduleEntry?, expanded: Bool) -> Color {
-        if expanded { return Theme.Palette.surfaceContainerHigh.opacity(0.7) }
+    private func rowBackground(scheduled: ScheduleEntry?) -> Color {
         if scheduled != nil { return Theme.Palette.surfaceContainer }
         return Theme.Palette.surfaceContainerLowest
+    }
+
+    /// The scheduled time range shown on a brain-dump card. The Schedule
+    /// section drops this same label from its blocks — the hour ticks down the
+    /// side of that grid already convey the time — but a brain-dump card has no
+    /// grid around it, so it carries the range itself.
+    @ViewBuilder
+    private func scheduledTimeRange(for entry: ScheduleEntry) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "clock")
+                .font(.system(size: 13, weight: .regular))
+            Text(TimeFormat.range(startMinute: entry.startMinute, durationMinutes: entry.durationMinutes))
+                .font(Theme.Font.tinyLabel)
+                .tracking(-0.3)
+                .textCase(.uppercase)
+        }
+        .foregroundStyle(Theme.Palette.primary)
     }
 
     @ViewBuilder
@@ -348,12 +360,7 @@ struct Top3SwapSheet: View {
         HStack {
             Spacer()
             Button("Cancel", action: dismiss)
-                .buttonStyle(.plain)
-                .font(Theme.Font.labelMd)
-                .padding(.horizontal, 18)
-                .frame(height: 34)
-                .foregroundStyle(Theme.Palette.primary)
-                .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
+                .buttonStyle(SecondaryActionStyle())
                 .keyboardShortcut(.cancelAction)
         }
     }

@@ -118,20 +118,10 @@ struct ColorWheelPopover: View {
             HStack(spacing: 12) {
                 Spacer()
                 Button("Cancel", action: onCancel)
-                    .buttonStyle(.plain)
-                    .font(Theme.Font.labelMd)
-                    .padding(.horizontal, 16)
-                    .frame(height: 30)
-                    .foregroundStyle(Theme.Palette.primary)
-                    .overlay(Rectangle().strokeBorder(Theme.Palette.primary, lineWidth: 1))
+                    .buttonStyle(SecondaryActionStyle())
                     .keyboardShortcut(.cancelAction)
                 Button("Save", action: onSave)
-                    .buttonStyle(.plain)
-                    .font(Theme.Font.labelMd)
-                    .padding(.horizontal, 16)
-                    .frame(height: 30)
-                    .foregroundStyle(Theme.Palette.onPrimary)
-                    .background(Theme.Palette.primary)
+                    .buttonStyle(PrimaryActionStyle())
                     .keyboardShortcut(.defaultAction)
             }
         }
