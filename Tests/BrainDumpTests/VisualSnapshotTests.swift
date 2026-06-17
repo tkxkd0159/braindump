@@ -413,6 +413,31 @@ struct VisualSnapshotTests {
     }
 
     @Test
+    func captureTaskDetailSheetReadOnlyWithLink() throws {
+        Fonts.registerIfNeeded()
+        let context = try InMemoryStore.makeContext()
+        let day = DayService(context: context).day(for: TestDate.at(2026, 5, 22))
+        let taskService = TaskService(context: context)
+        let item = taskService.addBrainDumpItem(title: "Read the launch doc", on: day)
+        taskService.updateNotes(
+            item,
+            notes: "Spec lives at https://google.com — review it before standup. "
+                + "Email jsl@linecorp.com or see apple.com stays plain."
+        )
+
+        let focus = TaskDetailFocus(item: item, entry: nil, startInEditMode: false)
+        let view = TaskDetailSheet(focus: focus, dismiss: {})
+            .environment(\.modelContext, context)
+            .padding(40)
+            .background(Theme.Palette.surface)
+        renderViaHostingWindow(
+            view,
+            size: NSSize(width: 600, height: 600),
+            filename: "snapshot-task-detail-link.png"
+        )
+    }
+
+    @Test
     func captureBacklogScreenWithAddTaskButton() throws {
         Fonts.registerIfNeeded()
         let context = try InMemoryStore.makeContext()

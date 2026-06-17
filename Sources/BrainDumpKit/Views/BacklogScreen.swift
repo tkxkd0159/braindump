@@ -97,7 +97,7 @@ public struct BacklogScreen: View {
                     .font(Theme.Font.bodyLgSemibold)
                     .foregroundStyle(Theme.Palette.onSurface)
                 if !item.notes.isEmpty {
-                    Text(item.notes)
+                    Text(NoteText.linkified(item.notes))
                         .font(Theme.Font.bodyMd)
                         .foregroundStyle(Theme.Palette.onSurfaceVariant)
                         .lineLimit(2)

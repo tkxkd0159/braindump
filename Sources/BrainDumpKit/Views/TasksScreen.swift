@@ -163,7 +163,7 @@ public struct TasksScreen: View {
                             )
                             .multilineTextAlignment(.leading)
                         if !item.notes.isEmpty {
-                            Text(item.notes)
+                            Text(NoteText.linkified(item.notes))
                                 .font(Theme.Font.bodyMd)
                                 .foregroundStyle(Theme.Palette.onSurfaceVariant)
                                 .lineLimit(2)

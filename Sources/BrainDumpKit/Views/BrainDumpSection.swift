@@ -138,7 +138,7 @@ public struct BrainDumpSection: View {
                     TagChipRow(tags: item.tags)
                 }
                 if expanded && !item.notes.isEmpty {
-                    Text(item.notes)
+                    Text(NoteText.linkified(item.notes))
                         .font(Theme.Font.bodyMd)
                         .foregroundStyle(Theme.Palette.onSurfaceVariant)
                         .fixedSize(horizontal: false, vertical: true)

@@ -439,7 +439,7 @@ public struct TaskDetailSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
             if !item.notes.isEmpty {
                 readOnlySection("Description") {
-                    Text(item.notes)
+                    Text(NoteText.linkified(item.notes))
                         .font(Theme.Font.bodyMd)
                         .foregroundStyle(Theme.Palette.onSurface)
                         .fixedSize(horizontal: false, vertical: true)
